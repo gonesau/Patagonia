@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuth() && request.auth.token.rol == 'admin';
+    }
+
+    function isGuia() {
+      return isAuth() && request.auth.token.rol == 'guia';
+    }
+
+    match /vagos/{vagoId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /tour_plantillas/{plantillaId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /tours/{tourId} {
+      allow read: if isAdmin() || (isGuia() && resource.data.guiaId == request.auth.uid);
+      allow write: if isAdmin();
+
+      match /inscripciones/{inscripcionId} {
+        allow read: if isAdmin() || (isGuia() && get(/databases/$(database)/documents/tours/$(tourId)).data.guiaId == request.auth.uid);
+        allow write: if isAdmin();
+      }
+
+      match /compras/{compraId} {
+        allow read, write: if isAdmin();
+      }
+    }
+
+    match /guias/{guiaId} {
+      allow read, write: if isAdmin();
+      match /documentos/{docId} {
+        allow read, write: if isAdmin();
+      }
+    }
+
+    match /transporte/{transporteId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /pagos/{pagoId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /usuarios_sistema/{userId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /notificaciones/{notifId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /auditoria/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuth();
+      allow update, delete: if false;
+    }
+  }
+}
