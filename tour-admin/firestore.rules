@@ -5,16 +5,50 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function userDocPath() {
+      return /databases/$(database)/documents/usuarios_sistema/$(request.auth.uid);
+    }
+
+    function userDoc() {
+      return get(userDocPath());
+    }
+
+    function hasActiveRole(role) {
+      return isAuth()
+        && exists(userDocPath())
+        && userDoc().data.activo == true
+        && userDoc().data.rol == role;
+    }
+
     function isAdmin() {
-      return isAuth() && request.auth.token.rol == 'admin';
+      return hasActiveRole('admin');
     }
 
     function isGuia() {
-      return isAuth() && request.auth.token.rol == 'guia';
+      return hasActiveRole('guia');
     }
 
-    function isOperador() {
-      return isAuth() && request.auth.token.rol == 'operador';
+    function isActiveUser() {
+      return isAuth() && exists(userDocPath()) && userDoc().data.activo == true;
+    }
+
+    function userGuiaId() {
+      return isAuth() && exists(userDocPath()) ? userDoc().data.guiaId : null;
+    }
+
+    function isTourAssignedToGuia(tourData) {
+      return isGuia() && userGuiaId() != null && (
+        (tourData.guiaId != null && tourData.guiaId == userGuiaId()) ||
+        (tourData.guiaIds != null && userGuiaId() in tourData.guiaIds)
+      );
+    }
+
+    function tourDocPath(tourId) {
+      return /databases/$(database)/documents/tours/$(tourId);
+    }
+
+    function pagoTourSnapshot() {
+      return get(tourDocPath(resource.data.tourId));
     }
 
     match /vagos/{vagoId} {
@@ -22,40 +56,52 @@ service cloud.firestore {
     }
 
     match /tour_plantillas/{plantillaId} {
-      allow read, write: if isAdmin();
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
     }
 
     match /tours/{tourId} {
-      allow read: if isAdmin() || (isGuia() && resource.data.guiaId == request.auth.token.guiaId);
+      allow read: if isAdmin() || isTourAssignedToGuia(resource.data);
       allow write: if isAdmin();
 
       match /inscripciones/{inscripcionId} {
-        allow read: if isAdmin() || (isGuia() && get(/databases/$(database)/documents/tours/$(tourId)).data.guiaId == request.auth.token.guiaId);
+        allow read: if isAdmin() || isTourAssignedToGuia(get(tourDocPath(tourId)).data);
         allow write: if isAdmin();
       }
 
       match /compras/{compraId} {
-        allow read, write: if isAdmin();
+        allow read: if isAdmin() || isTourAssignedToGuia(get(tourDocPath(tourId)).data);
+        allow write: if isAdmin();
       }
     }
 
     match /guias/{guiaId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin() || (isGuia() && userGuiaId() == guiaId);
+      allow write: if isAdmin();
       match /documentos/{docId} {
-        allow read, write: if isAdmin();
+        allow read: if isAdmin() || (isGuia() && userGuiaId() == guiaId);
+        allow write: if isAdmin();
       }
     }
 
     match /transporte/{transporteId} {
-      allow read, write: if isAdmin();
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
     }
 
     match /compras/{compraId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin() || (
+        isGuia()
+        && resource.data.tourId != null
+        && exists(tourDocPath(resource.data.tourId))
+        && isTourAssignedToGuia(get(tourDocPath(resource.data.tourId)).data)
+      );
+      allow write: if isAdmin();
     }
 
     match /pagos/{pagoId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin() || (isGuia() && pagoTourSnapshot().exists && isTourAssignedToGuia(pagoTourSnapshot().data));
+      allow write: if isAdmin();
     }
 
     match /usuarios_sistema/{userId} {
@@ -64,39 +110,53 @@ service cloud.firestore {
     }
 
     match /categoriasCompra/{itemId} {
-      allow read, write: if isAdmin();
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
     }
 
     match /tiposVehiculo/{itemId} {
-      allow read, write: if isAdmin();
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
     }
 
     match /relacionesEmergencia/{itemId} {
-      allow read, write: if isAdmin();
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
     }
 
     match /estadosTour/{itemId} {
-      allow read, write: if isAdmin();
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
     }
 
     match /metodosPago/{itemId} {
-      allow read, write: if isAdmin();
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
     }
 
     match /dificultadesPlantilla/{itemId} {
-      allow read, write: if isAdmin();
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
     }
 
     match /estadosGuia/{itemId} {
-      allow read, write: if isAdmin();
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
     }
 
     match /nivelesExperiencia/{itemId} {
-      allow read, write: if isAdmin();
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
     }
 
     match /notificaciones/{notifId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin() || (isGuia() && resource.data.tourId != null && exists(tourDocPath(resource.data.tourId)) && isTourAssignedToGuia(get(tourDocPath(resource.data.tourId)).data));
+      allow write: if isAdmin();
+    }
+
+    match /configuracion/{docId} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
     }
 
     match /auditoria/{logId} {

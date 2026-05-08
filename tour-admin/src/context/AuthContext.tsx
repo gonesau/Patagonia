@@ -56,9 +56,9 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
 };
 
 const EMBEDDED_BROWSER_REGEX = /(FBAN|FBAV|Instagram|Line|wv|WebView|Twitter|LinkedInApp)/i;
-
-const CLAIM_WAIT_MAX_ATTEMPTS = 6;
-const CLAIM_WAIT_DELAY_MS = 500;
+const PROFILE_WAIT_MAX_ATTEMPTS = 6;
+const PROFILE_WAIT_DELAY_MS = 500;
+const PROFILE_NOT_AUTHORIZED_MESSAGE = "Tu usuario no está autorizado para acceder al sistema.";
 
 function detectEmbeddedBrowser(): boolean {
   if (typeof navigator === "undefined") {
@@ -69,23 +69,6 @@ function detectEmbeddedBrowser(): boolean {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function awaitTokenWithRoleClaim(user: User, expectedRole: UserRole): Promise<void> {
-  for (let attempt = 0; attempt < CLAIM_WAIT_MAX_ATTEMPTS; attempt += 1) {
-    const tokenResult = await user.getIdTokenResult(true);
-    if (tokenResult.claims.rol === expectedRole) {
-      return;
-    }
-    await delay(CLAIM_WAIT_DELAY_MS);
-  }
-  const finalTokenResult = await user.getIdTokenResult(true);
-  if (finalTokenResult.claims.rol === expectedRole) {
-    return;
-  }
-  throw new Error(
-    "Tu sesión aún no tiene los permisos asignados, intenta iniciar sesión de nuevo en unos segundos.",
-  );
 }
 
 function shouldFallbackToRedirect(error: unknown): boolean {
@@ -145,6 +128,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.rol;
   }, []);
 
+  const loadUserProfileWithRetry = useCallback(async (uid: string): Promise<UserRole> => {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < PROFILE_WAIT_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        return await loadUserProfile(uid);
+      } catch (error) {
+        lastError = error;
+        const shouldRetry =
+          error instanceof Error &&
+          error.message === PROFILE_NOT_AUTHORIZED_MESSAGE &&
+          attempt < PROFILE_WAIT_MAX_ATTEMPTS - 1;
+        if (!shouldRetry) {
+          throw error;
+        }
+        await delay(PROFILE_WAIT_DELAY_MS);
+      }
+    }
+    throw (lastError instanceof Error ? lastError : new Error("No fue posible cargar tu perfil."));
+  }, [loadUserProfile]);
+
   useEffect(() => {
     let isMounted = true;
     let unsubscribe: () => void = () => {};
@@ -166,8 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-          const expectedRole = await loadUserProfile(currentUser.uid);
-          await awaitTokenWithRoleClaim(currentUser, expectedRole);
+          await loadUserProfileWithRetry(currentUser.uid);
         } catch (error) {
           setProfile(null);
           setErrorMessage(
@@ -186,7 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isMounted = false;
       unsubscribe();
     };
-  }, [loadUserProfile]);
+  }, [loadUserProfileWithRetry]);
 
   const signInWithGoogle = useCallback(async () => {
     setErrorMessage(null);

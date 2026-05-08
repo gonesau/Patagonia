@@ -74,10 +74,11 @@ export function UsersAdminSection({ users, guias, isSubmitting, onCreate, onUpda
   }));
 
   return (
-    <div className="grid gap-3 lg:grid-cols-3">
-      <Card>
-        <h3 className="mb-2 font-heading text-lg">Usuarios del sistema</h3>
-        <div className="grid gap-2">
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+      <div className="min-w-0">
+        <Card>
+          <h3 className="mb-2 font-heading text-lg">Usuarios del sistema</h3>
+          <div className="grid gap-2">
           <Input label="Nombre" value={nombre} onChange={(event) => setNombre(event.target.value)} disabled={isSubmitting} />
           <Input label="Email" value={email} onChange={(event) => setEmail(event.target.value)} disabled={isSubmitting} />
           <label className="flex flex-col gap-1 text-sm text-textDark">
@@ -113,12 +114,13 @@ export function UsersAdminSection({ users, guias, isSubmitting, onCreate, onUpda
             <input type="checkbox" checked={sendInvitation} onChange={(event) => setSendInvitation(event.target.checked)} />
             Enviar invitación por correo
           </label>
-          <Button className="w-full" disabled={isSubmitting} onClick={() => void handleCreate()}>
-            {isSubmitting ? "Guardando..." : "Crear usuario"}
-          </Button>
-        </div>
-      </Card>
-      <div className="lg:col-span-2">
+            <Button className="w-full" disabled={isSubmitting} onClick={() => void handleCreate()}>
+              {isSubmitting ? "Guardando..." : "Crear usuario"}
+            </Button>
+          </div>
+        </Card>
+      </div>
+      <div className="min-w-0 lg:col-span-2">
         <Card>
           <Table headers={["Nombre", "Email", "Rol", "Estado", "Invitación", "Acciones"]} rows={rows} />
         </Card>

@@ -10,8 +10,10 @@ export interface Transporte {
   anio?: number;
   placa: string;
   capacidad: number;
+  tipoCombustible?: string;
   costoPorTour: number;
   seguroPoliza?: string;
   seguroVence?: Date;
   activo: boolean;
+  creadoEn?: Date;
 }

@@ -8,4 +8,5 @@ export interface Inscripcion {
   montoTotal: number;
   montoPagado: number;
   estadoPago: "pendiente" | "parcial" | "completo";
+  inscritoEn?: Date;
 }

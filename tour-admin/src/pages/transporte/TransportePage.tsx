@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -12,7 +12,7 @@ import { tiposVehiculoService } from "@/services/tiposVehiculoService";
 import { transporteService } from "@/services/transporteService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
 import type { TipoVehiculo } from "@/types/tipoVehiculo.types";
-import { formatPlate } from "@/utils/inputMasks";
+import { formatPhone, formatPlate } from "@/utils/inputMasks";
 import { transporteFormSchema, type TransporteFormValues } from "@/utils/validaciones";
 import type { Transporte } from "@/types/transporte.types";
 
@@ -21,13 +21,30 @@ const defaultValues: TransporteFormValues = {
   tipoVehiculoNombreSnapshot: "",
   empresa: "",
   motorista: "",
+  telefonoMotorista: "",
   marca: "",
   modelo: "",
+  anio: undefined,
   placa: "",
   capacidad: 0,
+  tipoCombustible: "",
   costoPorTour: 0,
+  seguroPoliza: "",
+  seguroVence: "",
   activo: true,
 };
+
+function toDateInputValue(value: Date | undefined): string {
+  if (!value) {
+    return "";
+  }
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) {
+    return "";
+  }
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 export function TransportePage() {
   const [unidades, setUnidades] = useState<Transporte[]>([]);
@@ -38,7 +55,7 @@ export function TransportePage() {
   const [unidadToDelete, setUnidadToDelete] = useState<Transporte | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
   const form = useForm<TransporteFormValues>({
-    resolver: zodResolver(transporteFormSchema),
+    resolver: zodResolver(transporteFormSchema) as Resolver<TransporteFormValues>,
     defaultValues,
     mode: "onBlur",
     reValidateMode: "onChange",
@@ -75,11 +92,16 @@ export function TransportePage() {
       tipoVehiculoId: unidad.tipoVehiculoId ?? "",
       tipoVehiculoNombreSnapshot: unidad.tipoVehiculoNombreSnapshot ?? "",
       motorista: unidad.motorista,
+      telefonoMotorista: unidad.telefonoMotorista ?? "",
       marca: unidad.marca,
       modelo: unidad.modelo,
+      anio: unidad.anio,
       placa: unidad.placa,
       capacidad: unidad.capacidad,
+      tipoCombustible: unidad.tipoCombustible ?? "",
       costoPorTour: unidad.costoPorTour,
+      seguroPoliza: unidad.seguroPoliza ?? "",
+      seguroVence: toDateInputValue(unidad.seguroVence),
       activo: unidad.activo,
     });
     setIsFormModalOpen(true);
@@ -95,11 +117,21 @@ export function TransportePage() {
     try {
       setErrorMessage(null);
       setSuccessMessage(null);
+      const seguroVence =
+        values.seguroVence && values.seguroVence.trim().length > 0 ? new Date(values.seguroVence) : undefined;
+      const payload = {
+        ...values,
+        telefonoMotorista: values.telefonoMotorista?.trim() || undefined,
+        tipoCombustible: values.tipoCombustible?.trim() || undefined,
+        seguroPoliza: values.seguroPoliza?.trim() || undefined,
+        anio: values.anio,
+        seguroVence,
+      };
       if (selectedUnidad) {
-        await transporteService.update(selectedUnidad.id, values);
+        await transporteService.update(selectedUnidad.id, payload);
         setSuccessMessage("Unidad actualizada exitosamente.");
       } else {
-        await transporteService.create(values);
+        await transporteService.create(payload);
         setSuccessMessage("Unidad registrada exitosamente.");
       }
       closeFormModal();
@@ -176,21 +208,36 @@ export function TransportePage() {
             </label>
             <input type="hidden" {...form.register("tipoVehiculoNombreSnapshot")} />
             <Input label="Motorista" {...form.register("motorista")} error={form.formState.errors.motorista?.message} />
+            <Input
+              label="Teléfono motorista"
+              mask={formatPhone}
+              {...form.register("telefonoMotorista")}
+              error={form.formState.errors.telefonoMotorista?.message}
+            />
             <Input label="Marca" {...form.register("marca")} error={form.formState.errors.marca?.message} />
             <Input label="Modelo" {...form.register("modelo")} error={form.formState.errors.modelo?.message} />
             <Input label="Placa" mask={formatPlate} {...form.register("placa")} error={form.formState.errors.placa?.message} />
+            <Input
+              label="Año"
+              type="number"
+              {...form.register("anio", { valueAsNumber: true })}
+              error={form.formState.errors.anio?.message}
+            />
             <Input
               label="Capacidad"
               type="number"
               {...form.register("capacidad", { valueAsNumber: true })}
               error={form.formState.errors.capacidad?.message}
             />
+            <Input label="Combustible" {...form.register("tipoCombustible")} />
             <Input
               label="Costo por tour"
               type="number"
               {...form.register("costoPorTour", { valueAsNumber: true })}
               error={form.formState.errors.costoPorTour?.message}
             />
+            <Input label="Póliza seguro" {...form.register("seguroPoliza")} />
+            <Input label="Vencimiento seguro" type="date" {...form.register("seguroVence")} />
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" {...form.register("activo")} />

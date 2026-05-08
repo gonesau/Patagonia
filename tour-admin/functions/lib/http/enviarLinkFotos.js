@@ -5,6 +5,7 @@ const firebase_functions_1 = require("firebase-functions");
 const https_1 = require("firebase-functions/v2/https");
 const firebaseAdmin_1 = require("../shared/firebaseAdmin");
 const emailService_1 = require("../shared/emailService");
+const configEmailTemplates_1 = require("../shared/configEmailTemplates");
 exports.enviarLinkFotos = (0, https_1.onCall)(async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError("unauthenticated", "Debes iniciar sesión para ejecutar esta acción.");
@@ -24,12 +25,21 @@ exports.enviarLinkFotos = (0, https_1.onCall)(async (request) => {
         .collection("inscripciones")
         .where("estado", "!=", "cancelado")
         .get();
+    const plantillas = await (0, configEmailTemplates_1.getPlantillasEmailConfig)();
+    const htmlExtra = plantillas.linkFotosCuerpoHtml ?? "";
     for (const doc of inscripciones.docs) {
         const data = doc.data();
+        const htmlBody = [
+            `<p>${mensajePersonalizado ?? "Gracias por participar."}</p>`,
+            htmlExtra,
+            `<p>Fotos: ${tour.driveFolderUrl}</p>`,
+        ]
+            .filter(Boolean)
+            .join("");
         await (0, emailService_1.sendEmail)({
             to: data.vagoEmail,
             subject: `Fotos del tour ${tour.nombre}`,
-            htmlBody: `<p>${mensajePersonalizado ?? "Gracias por participar."}</p><p>Fotos: ${tour.driveFolderUrl}</p>`,
+            htmlBody,
         });
     }
     await firebaseAdmin_1.adminDb.collection("notificaciones").add({

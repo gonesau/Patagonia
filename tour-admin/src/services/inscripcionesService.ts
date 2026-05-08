@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   doc,
+  getCountFromServer,
   getDocs,
   limit as queryLimit,
   orderBy,
@@ -20,13 +21,29 @@ import { ServiceError } from "./serviceErrors";
 import { DEFAULT_PAGE_SIZE, type PaginatedResult, type PaginationParams } from "./pagination";
 
 export const inscripcionesService = {
+  async countActivas(tourId: string): Promise<number> {
+    const ref = collection(db, "tours", tourId, "inscripciones");
+    const snapshot = await getCountFromServer(query(ref, where("estado", "!=", "cancelado")));
+    return snapshot.data().count;
+  },
+
   async listByTour(tourId: string): Promise<Inscripcion[]> {
     const ref = collection(db, "tours", tourId, "inscripciones");
     const snapshot = await getDocs(query(ref, orderBy("inscritoEn", "desc")));
     return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Inscripcion);
   },
-  async createForTour(tourId: string, vago: Vago, montoTotal: number, userId: string): Promise<void> {
+  async createForTour(
+    tourId: string,
+    vago: Vago,
+    montoTotal: number,
+    userId: string,
+    cupoMaximo: number,
+  ): Promise<void> {
     const ref = collection(db, "tours", tourId, "inscripciones");
+    const activas = await this.countActivas(tourId);
+    if (activas >= cupoMaximo) {
+      throw new ServiceError("No hay cupos disponibles para esta ocurrencia.");
+    }
     const duplicate = await getDocs(query(ref, where("vagoId", "==", vago.id), limit(1)));
     if (!duplicate.empty) {
       throw new ServiceError("El vago ya está inscrito en esta ocurrencia.");

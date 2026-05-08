@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -11,6 +11,11 @@ import { TableActions } from "@/components/ui/TableActions";
 import { useAuth } from "@/hooks/useAuth";
 import { dificultadesPlantillaService } from "@/services/dificultadesPlantillaService";
 import { plantillasService } from "@/services/plantillasService";
+import { toursService } from "@/services/toursService";
+import { calculateTourMargin } from "@/utils/financiero.utils";
+import { pagosService } from "@/services/pagosService";
+import { comprasService } from "@/services/comprasService";
+import { inscripcionesService } from "@/services/inscripcionesService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
 import { plantillaFormSchema, type PlantillaFormValues } from "@/utils/validaciones";
 import type { DificultadPlantilla } from "@/types/dificultadPlantilla.types";
@@ -21,6 +26,14 @@ const defaultValues: PlantillaFormValues = {
   descripcion: "",
   dificultad: "",
   dificultadId: "",
+  distanciaKm: undefined,
+  elevacionM: undefined,
+  wikiloc: "",
+  equipoRecomendado: "",
+  queLlevar: "",
+  itinerarioTipo: "",
+  serviciosExtras: "",
+  politicaCancelacion: "",
   precioBase: 0,
   activa: true,
 };
@@ -33,9 +46,12 @@ export function PlantillasPage() {
   const [dificultades, setDificultades] = useState<DificultadPlantilla[]>([]);
   const [selectedPlantilla, setSelectedPlantilla] = useState<TourPlantilla | null>(null);
   const [plantillaToDelete, setPlantillaToDelete] = useState<TourPlantilla | null>(null);
+  const [historialPlantilla, setHistorialPlantilla] = useState<TourPlantilla | null>(null);
+  const [historialOcurrencias, setHistorialOcurrencias] = useState<Array<[string, string, string, string, string]>>([]);
+  const [isHistorialLoading, setIsHistorialLoading] = useState(false);
   const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
   const form = useForm<PlantillaFormValues>({
-    resolver: zodResolver(plantillaFormSchema),
+    resolver: zodResolver(plantillaFormSchema) as Resolver<PlantillaFormValues>,
     defaultValues,
     mode: "onBlur",
     reValidateMode: "onChange",
@@ -71,6 +87,14 @@ export function PlantillasPage() {
       descripcion: plantilla.descripcion,
       dificultad: plantilla.dificultad,
       dificultadId: plantilla.dificultadId ?? "",
+      distanciaKm: plantilla.distanciaKm,
+      elevacionM: plantilla.elevacionM,
+      wikiloc: plantilla.wikiloc ?? "",
+      equipoRecomendado: plantilla.equipoRecomendado ?? "",
+      queLlevar: plantilla.queLlevar ?? "",
+      itinerarioTipo: plantilla.itinerarioTipo ?? "",
+      serviciosExtras: plantilla.serviciosExtras ?? "",
+      politicaCancelacion: plantilla.politicaCancelacion ?? "",
       precioBase: plantilla.precioBase,
       activa: plantilla.activa,
     });
@@ -103,6 +127,39 @@ export function PlantillasPage() {
       setErrorMessage(toServiceErrorMessage(error));
     }
   });
+
+  const openHistorialPlantilla = async (plantilla: TourPlantilla) => {
+    setHistorialPlantilla(plantilla);
+    setHistorialOcurrencias([]);
+    setIsHistorialLoading(true);
+    setErrorMessage(null);
+    try {
+      const ocurrencias = await toursService.listByPlantilla(plantilla.id);
+      const rows: Array<[string, string, string, string, string]> = [];
+      for (const tour of ocurrencias) {
+        const [pagos, compras] = await Promise.all([
+          pagosService.listByTour(tour.id),
+          comprasService.listByTour(tour.id),
+        ]);
+        const ingresos = pagos.reduce((t, p) => t + p.monto, 0);
+        const costoCompras = compras.reduce((t, c) => t + c.monto, 0);
+        const margin = calculateTourMargin(ingresos, tour.costoTransporte ?? 0, costoCompras, tour.costosExtras ?? 0);
+        const inscritos = String(await inscripcionesService.countActivas(tour.id));
+        rows.push([
+          new Date(tour.fechaInicio).toLocaleDateString("es-SV"),
+          tour.estado,
+          inscritos,
+          ingresos.toFixed(2),
+          margin.margenGanancia.toFixed(2),
+        ]);
+      }
+      setHistorialOcurrencias(rows);
+    } catch (error) {
+      setErrorMessage(toServiceErrorMessage(error));
+    } finally {
+      setIsHistorialLoading(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!plantillaToDelete) {
@@ -140,7 +197,12 @@ export function PlantillasPage() {
               item.dificultad,
               `$${item.precioBase.toFixed(2)}`,
               item.activa ? "Activa" : "Inactiva",
-              <TableActions key={`actions-${item.id}`} onDelete={() => setPlantillaToDelete(item)} onEdit={() => openEditModal(item)} />,
+              <div key={`act-${item.id}`} className="flex flex-wrap gap-2">
+                <Button type="button" variant="ghost" onClick={() => void openHistorialPlantilla(item)}>
+                  Ocurrencias
+                </Button>
+                <TableActions onDelete={() => setPlantillaToDelete(item)} onEdit={() => openEditModal(item)} />
+              </div>,
             ],
           }))}
         />
@@ -178,6 +240,39 @@ export function PlantillasPage() {
               {...form.register("precioBase", { valueAsNumber: true })}
               error={form.formState.errors.precioBase?.message}
             />
+            <Input
+              label="Distancia (km)"
+              type="number"
+              {...form.register("distanciaKm", { valueAsNumber: true })}
+              error={form.formState.errors.distanciaKm?.message}
+            />
+            <Input
+              label="Elevación (m)"
+              type="number"
+              {...form.register("elevacionM", { valueAsNumber: true })}
+              error={form.formState.errors.elevacionM?.message}
+            />
+            <Input label="Wikiloc (URL)" {...form.register("wikiloc")} />
+            <label className="flex flex-col gap-1 text-sm md:col-span-2">
+              <span>Equipo recomendado</span>
+              <textarea className="min-h-20 rounded-md border border-border px-3 py-2" {...form.register("equipoRecomendado")} />
+            </label>
+            <label className="flex flex-col gap-1 text-sm md:col-span-2">
+              <span>Qué llevar</span>
+              <textarea className="min-h-20 rounded-md border border-border px-3 py-2" {...form.register("queLlevar")} />
+            </label>
+            <label className="flex flex-col gap-1 text-sm md:col-span-2">
+              <span>Itinerario tipo</span>
+              <textarea className="min-h-24 rounded-md border border-border px-3 py-2" {...form.register("itinerarioTipo")} />
+            </label>
+            <label className="flex flex-col gap-1 text-sm md:col-span-2">
+              <span>Servicios extras</span>
+              <textarea className="min-h-20 rounded-md border border-border px-3 py-2" {...form.register("serviciosExtras")} />
+            </label>
+            <label className="flex flex-col gap-1 text-sm md:col-span-2">
+              <span>Política de cancelación</span>
+              <textarea className="min-h-20 rounded-md border border-border px-3 py-2" {...form.register("politicaCancelacion")} />
+            </label>
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" {...form.register("activa")} />
@@ -192,6 +287,19 @@ export function PlantillasPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+      <Modal
+        isOpen={Boolean(historialPlantilla)}
+        onClose={() => setHistorialPlantilla(null)}
+        size="lg"
+        title={historialPlantilla ? `Ocurrencias — ${historialPlantilla.nombre}` : "Historial"}
+      >
+        {isHistorialLoading ? <p className="text-sm text-neutral">Cargando...</p> : null}
+        <Table
+          emptyMessage="No hay ocurrencias para esta plantilla."
+          headers={["Fecha", "Estado", "Inscritos", "Ingresos", "Margen"]}
+          rows={historialOcurrencias}
+        />
       </Modal>
       <Modal isOpen={Boolean(plantillaToDelete)} onClose={() => setPlantillaToDelete(null)} size="sm" title="Eliminar plantilla">
         <p className="text-sm text-textDark">

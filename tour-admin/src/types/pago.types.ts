@@ -7,4 +7,8 @@ export interface Pago {
   metodoPagoId?: string;
   metodoPago: string;
   fecha: Date;
+  comprobanteUrl?: string;
+  notas?: string;
+  registradoPor: string;
+  creadoEn?: Date;
 }

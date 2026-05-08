@@ -11,19 +11,22 @@ import {
   Settings,
   Users,
   X,
+  type LucideIcon,
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import type { UserRole } from "@/types/usuario.types";
 
-const links = [
-  { to: "/dashboard", label: "Dashboard", icon: Home },
-  { to: "/vagos", label: "Vagos", icon: Users },
-  { to: "/guias", label: "Guías", icon: MapPinned },
-  { to: "/transporte", label: "Transporte", icon: Bus },
-  { to: "/plantillas", label: "Plantillas", icon: BookTemplate },
-  { to: "/tours", label: "Tours", icon: Compass },
-  { to: "/calendario", label: "Calendario", icon: CalendarDays },
-  { to: "/reportes", label: "Reportes", icon: CreditCard },
-  { to: "/administracion", label: "Administración", icon: ListChecks },
-  { to: "/configuracion", label: "Configuración", icon: Settings },
+const allLinks: Array<{ to: string; label: string; icon: LucideIcon; roles: UserRole[] }> = [
+  { to: "/dashboard", label: "Dashboard", icon: Home, roles: ["admin", "guia", "operador"] },
+  { to: "/vagos", label: "Vagos", icon: Users, roles: ["admin", "operador"] },
+  { to: "/guias", label: "Guías", icon: MapPinned, roles: ["admin", "operador"] },
+  { to: "/transporte", label: "Transporte", icon: Bus, roles: ["admin", "operador"] },
+  { to: "/plantillas", label: "Plantillas", icon: BookTemplate, roles: ["admin", "operador"] },
+  { to: "/tours", label: "Tours", icon: Compass, roles: ["admin", "guia", "operador"] },
+  { to: "/calendario", label: "Calendario", icon: CalendarDays, roles: ["admin", "guia", "operador"] },
+  { to: "/reportes", label: "Reportes", icon: CreditCard, roles: ["admin", "operador"] },
+  { to: "/administracion", label: "Administración", icon: ListChecks, roles: ["admin"] },
+  { to: "/configuracion", label: "Configuración", icon: Settings, roles: ["admin"] },
 ];
 
 interface SidebarProps {
@@ -33,6 +36,10 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isCollapsed, isMobileOpen, onCloseMobile }: SidebarProps) {
+  const { profile } = useAuth();
+  const role = profile?.rol ?? null;
+  const links = role ? allLinks.filter((item) => item.roles.includes(role)) : [];
+
   return (
     <>
       <aside

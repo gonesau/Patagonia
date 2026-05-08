@@ -64,10 +64,11 @@ export function CatalogCrudSection<T extends CatalogItem>({
   }));
 
   return (
-    <div className="grid gap-3 lg:grid-cols-3">
-      <Card>
-        <h3 className="mb-2 font-heading text-lg">{title}</h3>
-        <div className="grid gap-2">
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+      <div className="min-w-0">
+        <Card>
+          <h3 className="mb-2 font-heading text-lg">{title}</h3>
+          <div className="grid gap-2">
           <Input label="Nombre" value={nombre} onChange={(event) => setNombre(event.target.value)} disabled={isSubmitting} />
           <label className="flex flex-col gap-1 text-sm text-textDark">
             <span>Descripción</span>
@@ -78,19 +79,20 @@ export function CatalogCrudSection<T extends CatalogItem>({
               onChange={(event) => setDescripcion(event.target.value)}
             />
           </label>
-          <div className="flex gap-2">
-            <Button className="w-full" disabled={isSubmitting} onClick={() => void handleSave()}>
-              {isSubmitting ? "Guardando..." : editingId ? "Actualizar" : "Crear"}
-            </Button>
-            {editingId ? (
-              <Button className="w-full" variant="ghost" disabled={isSubmitting} onClick={resetForm}>
-                Cancelar
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button className="w-full" disabled={isSubmitting} onClick={() => void handleSave()}>
+                {isSubmitting ? "Guardando..." : editingId ? "Actualizar" : "Crear"}
               </Button>
-            ) : null}
+              {editingId ? (
+                <Button className="w-full" variant="ghost" disabled={isSubmitting} onClick={resetForm}>
+                  Cancelar
+                </Button>
+              ) : null}
+            </div>
           </div>
-        </div>
-      </Card>
-      <div className="lg:col-span-2">
+        </Card>
+      </div>
+      <div className="min-w-0 lg:col-span-2">
         <Card>
           <Table headers={["Nombre", "Descripción", "Estado", "Acciones"]} rows={rows} />
         </Card>

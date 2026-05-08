@@ -1,34 +1,49 @@
-import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { FileDown } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { useAuth } from "@/hooks/useAuth";
 import { toursService } from "@/services/toursService";
+import { transporteService } from "@/services/transporteService";
+import { uploadAdminFile } from "@/services/storageUploadService";
 import { calculateTourMargin } from "@/utils/financiero.utils";
 import { tourFormSchema, type TourFormValues } from "@/utils/validaciones";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
+import { findGuiaIdsWithTourConflict, plantillaSnapshotForTour } from "@/utils/tourScheduling.utils";
 import type { TourOcurrencia } from "@/types/tour.types";
+import type { Transporte } from "@/types/transporte.types";
 import { TourListPanel } from "./components/TourListPanel";
 import { TourDetailPanel } from "./components/TourDetailPanel";
+import { TourOperacionesPanel } from "./components/TourOperacionesPanel";
 import { InscripcionesPanel } from "./components/InscripcionesPanel";
 import { PagosPanel } from "./components/PagosPanel";
 import { ComprasPanel } from "./components/ComprasPanel";
 import { useToursPageState } from "./hooks/useToursPageState";
+import { buildTourVagosReport } from "@/utils/tourReportBuilder";
+import { generateTourVagosPdf } from "@/utils/pdf.utils";
+import { configuracionService } from "@/services/configuracionService";
 
 const defaultValues: TourFormValues = {
   plantillaId: "",
   nombre: "",
   estado: "borrador",
   guiaId: "",
+  guiaIds: [],
   fechaInicio: "",
   fechaFin: "",
   cupoMaximo: 20,
   cupoMinimo: 8,
   precioVenta: 25,
   puntoEncuentro: "",
+  transporteId: "",
+  costoTransporte: 0,
+  costosExtras: 0,
+  recordatoriosAutomaticosHabilitados: true,
 };
 
 function toLocalDateTimeString(value: Date | undefined): string {
@@ -43,8 +58,23 @@ function toLocalDateTimeString(value: Date | undefined): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function readSelectedValues(options: HTMLOptionsCollection): string[] {
+  return Array.from(options)
+    .filter((option) => option.selected)
+    .map((option) => option.value)
+    .filter((value) => value.length > 0);
+}
+
+function addDays(base: Date, days: number): Date {
+  const d = new Date(base);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
 export function ToursPage() {
   const { profile } = useAuth();
+  const isAdmin = profile?.rol === "admin";
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     tours,
     plantillas,
@@ -77,6 +107,20 @@ export function ToursPage() {
     deleteCompra,
   } = useToursPageState(profile);
 
+  useEffect(() => {
+    const tourFromQuery = searchParams.get("tour");
+    if (!tourFromQuery || tours.length === 0) {
+      return;
+    }
+    if (!tours.some((item) => item.id === tourFromQuery)) {
+      return;
+    }
+    setSelectedTourId(tourFromQuery);
+    const next = new URLSearchParams(searchParams);
+    next.delete("tour");
+    setSearchParams(next, { replace: true });
+  }, [tours, searchParams, setSearchParams, setSelectedTourId]);
+
   const [selectedVagoId, setSelectedVagoId] = useState<string>("");
   const [inscripcionMontoTotal, setInscripcionMontoTotal] = useState<number>(0);
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
@@ -85,6 +129,10 @@ export function ToursPage() {
   const [selectedTourToEdit, setSelectedTourToEdit] = useState<TourOcurrencia | null>(null);
   const [tourToDelete, setTourToDelete] = useState<TourOcurrencia | null>(null);
   const [isTourModalOpen, setIsTourModalOpen] = useState<boolean>(false);
+  const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
+  const [unidadesTransporte, setUnidadesTransporte] = useState<Transporte[]>([]);
+  const [transporteDisponibles, setTransporteDisponibles] = useState<Transporte[]>([]);
+  const [capacidadAdvertencia, setCapacidadAdvertencia] = useState<string | null>(null);
 
   const form = useForm<TourFormValues>({
     resolver: zodResolver(tourFormSchema),
@@ -92,11 +140,106 @@ export function ToursPage() {
     mode: "onBlur",
     reValidateMode: "onChange",
   });
+  const selectedGuideIds = useWatch({ control: form.control, name: "guiaIds" }) ?? [];
+  const plantillaIdWatch = useWatch({ control: form.control, name: "plantillaId" });
+  const fechaInicioWatch = useWatch({ control: form.control, name: "fechaInicio" });
+  const transporteIdWatch = useWatch({ control: form.control, name: "transporteId" });
+  const cupoMaxWatch = useWatch({ control: form.control, name: "cupoMaximo" }) ?? 0;
+
+  useEffect(() => {
+    if (!isAdmin) {
+      return;
+    }
+    void transporteService.list().then(setUnidadesTransporte);
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!fechaInicioWatch || unidadesTransporte.length === 0) {
+      setTransporteDisponibles(unidadesTransporte.filter((u) => u.activo));
+      return;
+    }
+    const inicio = new Date(fechaInicioWatch);
+    if (Number.isNaN(inicio.getTime())) {
+      setTransporteDisponibles(unidadesTransporte.filter((u) => u.activo));
+      return;
+    }
+    void (async () => {
+      const toursThatDay = await toursService.listOnLocalDate(inicio);
+      const busy = new Set<string>();
+      for (const t of toursThatDay) {
+        if (t.estado === "cancelado" || !t.transporteId) {
+          continue;
+        }
+        if (selectedTourToEdit && t.id === selectedTourToEdit.id) {
+          continue;
+        }
+        busy.add(t.transporteId);
+      }
+      setTransporteDisponibles(unidadesTransporte.filter((u) => u.activo && !busy.has(u.id)));
+    })();
+  }, [fechaInicioWatch, unidadesTransporte, selectedTourToEdit]);
+
+  useEffect(() => {
+    const unidad = unidadesTransporte.find((u) => u.id === transporteIdWatch);
+    if (unidad) {
+      form.setValue("costoTransporte", unidad.costoPorTour, { shouldDirty: true });
+    }
+  }, [transporteIdWatch, unidadesTransporte, form]);
+
+  useEffect(() => {
+    const unidad = unidadesTransporte.find((u) => u.id === transporteIdWatch);
+    if (unidad && cupoMaxWatch > unidad.capacidad) {
+      setCapacidadAdvertencia(
+        `La capacidad del vehículo (${unidad.capacidad}) es menor al cupo máximo (${cupoMaxWatch}).`,
+      );
+    } else {
+      setCapacidadAdvertencia(null);
+    }
+  }, [transporteIdWatch, unidadesTransporte, cupoMaxWatch]);
+
+  useEffect(() => {
+    if (selectedTourToEdit || !plantillaIdWatch) {
+      return;
+    }
+    const plantilla = plantillas.find((p) => p.id === plantillaIdWatch);
+    if (!plantilla) {
+      return;
+    }
+    form.setValue("nombre", plantilla.nombre, { shouldDirty: true });
+    form.setValue("precioVenta", plantilla.precioBase, { shouldDirty: true });
+  }, [plantillaIdWatch, plantillas, selectedTourToEdit, form]);
 
   const openCreateTourModal = () => {
     setSelectedTourToEdit(null);
     setSuccessMessage(null);
     form.reset(defaultValues);
+    setIsTourModalOpen(true);
+  };
+
+  const openDuplicateFromTour = (tour: TourOcurrencia) => {
+    setSelectedTourToEdit(null);
+    setSuccessMessage(null);
+    const start = addDays(new Date(), 7);
+    const end = new Date(start);
+    end.setHours(end.getHours() + 8);
+    form.reset({
+      ...defaultValues,
+      plantillaId: tour.plantillaId,
+      nombre: tour.nombre,
+      estado: "borrador",
+      guiaId: tour.guiaId,
+      guiaIds: tour.guiaIds && tour.guiaIds.length > 0 ? tour.guiaIds : tour.guiaId ? [tour.guiaId] : [],
+      fechaInicio: toLocalDateTimeString(start),
+      fechaFin: toLocalDateTimeString(end),
+      cupoMaximo: tour.cupoMaximo,
+      cupoMinimo: tour.cupoMinimo,
+      precioVenta: tour.precioVenta,
+      puntoEncuentro: tour.puntoEncuentro,
+      transporteId: tour.transporteId ?? "",
+      costoTransporte: tour.costoTransporte ?? 0,
+      costosExtras: tour.costosExtras ?? 0,
+      recordatoriosAutomaticosHabilitados: tour.recordatoriosAutomaticosHabilitados !== false,
+    });
     setIsTourModalOpen(true);
   };
 
@@ -108,12 +251,17 @@ export function ToursPage() {
       nombre: tour.nombre,
       estado: tour.estado,
       guiaId: tour.guiaId,
+      guiaIds: tour.guiaIds && tour.guiaIds.length > 0 ? tour.guiaIds : tour.guiaId ? [tour.guiaId] : [],
       fechaInicio: toLocalDateTimeString(tour.fechaInicio),
       fechaFin: toLocalDateTimeString(tour.fechaFin),
       cupoMaximo: tour.cupoMaximo,
       cupoMinimo: tour.cupoMinimo,
       precioVenta: tour.precioVenta,
       puntoEncuentro: tour.puntoEncuentro,
+      transporteId: tour.transporteId ?? "",
+      costoTransporte: tour.costoTransporte ?? 0,
+      costosExtras: tour.costosExtras ?? 0,
+      recordatoriosAutomaticosHabilitados: tour.recordatoriosAutomaticosHabilitados !== false,
     });
     setIsTourModalOpen(true);
   };
@@ -125,18 +273,66 @@ export function ToursPage() {
   };
 
   const onTourSubmit = form.handleSubmit(async (values) => {
+    if (!isAdmin) {
+      return;
+    }
     try {
       setErrorMessage(null);
       setSuccessMessage(null);
       const { fechaInicio, fechaFin, ...rest } = values;
+      const inicioDate = new Date(fechaInicio);
+      const finDate = new Date(fechaFin);
+      const conflictIds = await findGuiaIdsWithTourConflict(inicioDate, values.guiaIds, selectedTourToEdit?.id);
+      if (conflictIds.length > 0) {
+        const ok = window.confirm(
+          "Hay guías con otra ocurrencia el mismo día. ¿Deseas guardar de todas formas?",
+        );
+        if (!ok) {
+          return;
+        }
+      }
+      const unidad = unidadesTransporte.find((u) => u.id === values.transporteId);
+      if (unidad && values.cupoMaximo > unidad.capacidad) {
+        const ok = window.confirm(
+          `El vehículo tiene capacidad ${unidad.capacidad} y el cupo máximo es ${values.cupoMaximo}. ¿Continuar?`,
+        );
+        if (!ok) {
+          return;
+        }
+      }
+      const plantilla = plantillas.find((p) => p.id === values.plantillaId);
+      const snapshot = plantillaSnapshotForTour(plantilla) as Partial<TourOcurrencia>;
+
+      let recordatorio7dEnviado = selectedTourToEdit?.recordatorio7dEnviado ?? false;
+      let recordatorio1dEnviado = selectedTourToEdit?.recordatorio1dEnviado ?? false;
+      if (selectedTourToEdit) {
+        const oldT = new Date(selectedTourToEdit.fechaInicio).getTime();
+        if (oldT !== inicioDate.getTime()) {
+          recordatorio7dEnviado = false;
+          recordatorio1dEnviado = false;
+        }
+      } else {
+        recordatorio7dEnviado = false;
+        recordatorio1dEnviado = false;
+      }
+
       const normalizedValues = {
         ...rest,
+        ...snapshot,
         estadoId: estadosTourCatalog.find((item) => item.nombre === values.estado)?.id,
+        guiaId: values.guiaIds[0] ?? values.guiaId ?? "",
+        guiaIds: values.guiaIds,
         cupoMaximo: Number(values.cupoMaximo),
         cupoMinimo: Number(values.cupoMinimo),
         precioVenta: Number(values.precioVenta),
-        fechaInicio: new Date(fechaInicio),
-        fechaFin: new Date(fechaFin),
+        fechaInicio: inicioDate,
+        fechaFin: finDate,
+        transporteId: values.transporteId || undefined,
+        costoTransporte: Number(values.costoTransporte ?? 0),
+        costosExtras: Number(values.costosExtras ?? 0),
+        recordatoriosAutomaticosHabilitados: values.recordatoriosAutomaticosHabilitados !== false,
+        recordatorio7dEnviado,
+        recordatorio1dEnviado,
       };
       if (selectedTourToEdit) {
         await toursService.update(selectedTourToEdit.id, normalizedValues);
@@ -158,7 +354,7 @@ export function ToursPage() {
   });
 
   const handleDeleteTour = async () => {
-    if (!tourToDelete) {
+    if (!tourToDelete || !isAdmin) {
       return;
     }
 
@@ -174,13 +370,17 @@ export function ToursPage() {
   };
 
   const selectedTour = tours.find((tour) => tour.id === selectedTourId);
+  const inscripcionesActivas = inscripciones.filter((i) => i.estado !== "cancelado").length;
+  const cuposDisponibles = selectedTour ? Math.max(0, selectedTour.cupoMaximo - inscripcionesActivas) : 0;
   const ingresosRecibidos = inscripciones.reduce((total, item) => total + item.montoPagado, 0);
+  const ingresosEsperados = selectedTour ? selectedTour.precioVenta * inscripcionesActivas : 0;
   const costoCompras = comprasTour.reduce((total, item) => total + item.monto, 0);
   const financial = calculateTourMargin(
     ingresosRecibidos,
     selectedTour?.costoTransporte ?? 0,
     costoCompras,
     selectedTour?.costosExtras ?? 0,
+    ingresosEsperados,
   );
 
   const handleInscribir = async () => {
@@ -191,7 +391,12 @@ export function ToursPage() {
     });
   };
 
-  const handleRegistrarPago = async () => {
+  const handleRegistrarPago = async (payload: { comprobante?: File | null }) => {
+    let comprobanteUrl: string | undefined;
+    if (payload.comprobante && selectedTourId) {
+      const path = `comprobantes/${selectedTourId}/${Date.now()}_${payload.comprobante.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      comprobanteUrl = await uploadAdminFile(path, payload.comprobante);
+    }
     const paymentCreated = await createPago({
       inscripcionId: paymentInscripcionId,
       monto: paymentAmount,
@@ -200,11 +405,55 @@ export function ToursPage() {
         metodosPagoCatalog[0]?.nombre ||
         "transferencia",
       metodoPagoId: paymentMethodId || undefined,
+      registradoPor: profile?.id ?? "sistema",
+      comprobanteUrl,
     });
     if (paymentCreated) {
       setPaymentAmount(0);
     }
   };
+
+  const handleExportVagosPdf = async () => {
+    if (!selectedTourId || !isAdmin) {
+      return;
+    }
+    try {
+      setIsExportingPdf(true);
+      setErrorMessage(null);
+      const config = await configuracionService.get();
+      const reportData = await buildTourVagosReport(selectedTourId);
+      const pdf = await generateTourVagosPdf(reportData, {
+        logoUrl: config.logoUrl,
+        includePurchaseSummary: true,
+        comprasTour,
+      });
+      const safeName = reportData.tourName.replace(/[^\w\s-]/g, "").replace(/\s+/g, "_");
+      const fecha = reportData.scheduledDateTime.replace(/[^\d]/g, "").slice(0, 8);
+      pdf.save(`${safeName}_${fecha}_Listado.pdf`);
+    } catch (error) {
+      setErrorMessage(toServiceErrorMessage(error));
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleDriveFolderCreated = async (url: string) => {
+    if (!selectedTourId) {
+      return;
+    }
+    await toursService.update(selectedTourId, { driveFolderUrl: url });
+    await reloadTours();
+  };
+
+  const transporteOptions = useMemo(() => {
+    const selectedId = transporteIdWatch;
+    const list = transporteDisponibles.some((t) => t.id === selectedId)
+      ? transporteDisponibles
+      : selectedId
+        ? [...transporteDisponibles, ...unidadesTransporte.filter((u) => u.id === selectedId)]
+        : transporteDisponibles;
+    return list.filter((u, i, arr) => arr.findIndex((x) => x.id === u.id) === i);
+  }, [transporteDisponibles, transporteIdWatch, unidadesTransporte]);
 
   return (
     <>
@@ -215,8 +464,10 @@ export function ToursPage() {
         <TourListPanel
           tours={tours}
           hasMore={hasMoreTours}
+          isAdmin={isAdmin}
           isLoadingMore={isLoadingMoreTours}
           onAddTour={openCreateTourModal}
+          onDuplicateTour={openDuplicateFromTour}
           onSelectTour={setSelectedTourId}
           onEditTour={openEditTourModal}
           onDeleteTour={setTourToDelete}
@@ -224,44 +475,80 @@ export function ToursPage() {
         />
         <TourDetailPanel
           selectedTour={selectedTour}
+          inscripcionesActivas={inscripcionesActivas}
+          cupoMaximo={selectedTour?.cupoMaximo ?? 0}
+          ingresosEsperados={ingresosEsperados}
           ingresosRecibidos={ingresosRecibidos}
+          costoTransporte={selectedTour?.costoTransporte ?? 0}
+          costoCompras={costoCompras}
+          costosExtras={selectedTour?.costosExtras ?? 0}
           costoTotal={financial.costoTotal}
           margenGanancia={financial.margenGanancia}
+          margenPorcentajeSobreIngresos={financial.margenPorcentajeSobreIngresos}
         />
       </div>
+      {selectedTourId && isAdmin ? (
+        <div className="mt-4">
+          <TourOperacionesPanel
+            driveFolderUrl={selectedTour?.driveFolderUrl}
+            tourId={selectedTourId}
+            onDriveFolderCreated={(url) => void handleDriveFolderCreated(url)}
+            onReloadTour={reloadTours}
+          />
+        </div>
+      ) : null}
+      {selectedTourId ? (
+        <div className="mt-4 flex justify-end">
+          {isAdmin ? (
+            <Button
+              className="inline-flex items-center gap-2"
+              variant="secondary"
+              onClick={() => void handleExportVagosPdf()}
+              disabled={isExportingPdf}
+            >
+              <FileDown size={16} strokeWidth={1.8} />
+              {isExportingPdf ? "Exportando PDF..." : "Exportar listado PDF"}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       {selectedTourId ? (
         <div className="mt-4 grid gap-4 xl:grid-cols-3">
           <InscripcionesPanel
-            vagos={vagos}
-            selectedVagoId={selectedVagoId}
+            cuposDisponibles={cuposDisponibles}
             inscripcionMontoTotal={inscripcionMontoTotal}
+            isReadOnly={!isAdmin}
             isSubmitting={isSubmittingInscripcion}
-            onSelectVago={setSelectedVagoId}
+            selectedVagoId={selectedVagoId}
+            vagos={vagos}
             onAmountChange={setInscripcionMontoTotal}
+            onSelectVago={setSelectedVagoId}
             onSubmit={() => void handleInscribir()}
           />
           <PagosPanel
             inscripciones={inscripciones}
-            pagos={pagos}
-            paymentInscripcionId={paymentInscripcionId}
+            isReadOnly={!isAdmin}
+            isSubmitting={isSubmittingPago}
             paymentAmount={paymentAmount}
+            paymentInscripcionId={paymentInscripcionId}
             paymentMethodId={paymentMethodId}
             paymentMethods={metodosPagoCatalog}
-            isSubmitting={isSubmittingPago}
-            onSelectInscripcion={setPaymentInscripcionId}
+            pagos={pagos}
             onAmountChange={setPaymentAmount}
+            onSelectInscripcion={setPaymentInscripcionId}
             onSelectMethod={setPaymentMethodId}
-            onSubmit={() => void handleRegistrarPago()}
+            onSubmit={(payload) => void handleRegistrarPago(payload)}
           />
           <ComprasPanel
-            tourId={selectedTourId}
-            comprasTour={comprasTour}
-            comprasGenerales={comprasGenerales}
             categorias={categoriasCompra}
+            comprasGenerales={comprasGenerales}
+            comprasTour={comprasTour}
+            isReadOnly={!isAdmin}
             isSubmitting={isSubmittingCompra}
+            tourId={selectedTourId}
             onCreate={createCompra}
-            onUpdate={updateCompra}
             onDelete={deleteCompra}
+            onUpdate={updateCompra}
           />
         </div>
       ) : null}
@@ -289,17 +576,41 @@ export function ToursPage() {
             </label>
             <Input label="Nombre del tour" {...form.register("nombre")} error={form.formState.errors.nombre?.message} />
             <label className="flex flex-col gap-1 text-sm">
-              <span>Guía</span>
-              <select className="rounded-md border border-border px-3 py-2" {...form.register("guiaId")}>
-                <option value="">Selecciona un guía</option>
+              <span>Guías</span>
+              <select
+                className="rounded-md border border-border px-3 py-2"
+                multiple
+                value={selectedGuideIds}
+                onChange={(event) => {
+                  const ids = readSelectedValues(event.target.options);
+                  form.setValue("guiaIds", ids, { shouldDirty: true, shouldValidate: true });
+                  form.setValue("guiaId", ids[0] ?? "", { shouldDirty: true, shouldValidate: true });
+                }}
+              >
                 {guias.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.nombre} {item.apellido}
                   </option>
                 ))}
               </select>
-              {form.formState.errors.guiaId?.message ? (
-                <span className="text-danger">{form.formState.errors.guiaId.message}</span>
+              <input type="hidden" {...form.register("guiaId")} />
+              {form.formState.errors.guiaIds?.message ? (
+                <span className="text-danger">{form.formState.errors.guiaIds.message}</span>
+              ) : null}
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span>Transporte</span>
+              <select className="rounded-md border border-border px-3 py-2" {...form.register("transporteId")}>
+                <option value="">Sin asignar</option>
+                {transporteOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.placa} — {item.empresa} (cap. {item.capacidad})
+                  </option>
+                ))}
+              </select>
+              {capacidadAdvertencia ? <span className="text-amber-700">{capacidadAdvertencia}</span> : null}
+              {form.formState.errors.transporteId?.message ? (
+                <span className="text-danger">{form.formState.errors.transporteId.message}</span>
               ) : null}
             </label>
             <label className="flex flex-col gap-1 text-sm">
@@ -344,7 +655,23 @@ export function ToursPage() {
               {...form.register("precioVenta", { valueAsNumber: true })}
               error={form.formState.errors.precioVenta?.message}
             />
+            <Input
+              label="Costo transporte (USD)"
+              type="number"
+              {...form.register("costoTransporte", { valueAsNumber: true })}
+              error={form.formState.errors.costoTransporte?.message}
+            />
+            <Input
+              label="Otros costos extras (USD)"
+              type="number"
+              {...form.register("costosExtras", { valueAsNumber: true })}
+              error={form.formState.errors.costosExtras?.message}
+            />
           </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" {...form.register("recordatoriosAutomaticosHabilitados")} />
+            Habilitar recordatorios automáticos (7 y 1 día antes)
+          </label>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={closeTourModal}>
               Cancelar

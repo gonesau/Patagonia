@@ -50,7 +50,15 @@ interface UseToursPageStateResult {
   reloadTours: () => Promise<void>;
   loadMoreTours: () => Promise<void>;
   createInscripcion: (payload: { selectedVagoId: string; montoTotal: number; userId: string }) => Promise<void>;
-  createPago: (payload: { inscripcionId: string; monto: number; metodoPago: string; metodoPagoId?: string }) => Promise<boolean>;
+  createPago: (payload: {
+    inscripcionId: string;
+    monto: number;
+    metodoPago: string;
+    metodoPagoId?: string;
+    registradoPor: string;
+    comprobanteUrl?: string;
+    notas?: string;
+  }) => Promise<boolean>;
   createCompra: (payload: Omit<Compra, "id" | "creadoEn" | "actualizadoEn">) => Promise<void>;
   updateCompra: (compraId: string, payload: Partial<Omit<Compra, "id" | "creadoEn" | "actualizadoEn">>) => Promise<void>;
   deleteCompra: (compraId: string) => Promise<void>;
@@ -79,6 +87,18 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
   const [toursCursor, setToursCursor] = useState<QueryDocumentSnapshot<DocumentData> | undefined>(undefined);
 
   const loadCatalogs = useCallback(async () => {
+    if (profile?.rol === "guia") {
+      const [tourStatesData, paymentMethodsData] = await Promise.all([
+        estadosTourService.listActive(),
+        metodosPagoService.listActive(),
+      ]);
+      setPlantillas([]);
+      setGuias([]);
+      setVagos([]);
+      setEstadosTourCatalog(tourStatesData);
+      setMetodosPagoCatalog(paymentMethodsData);
+      return;
+    }
     const [plantillasData, guiasData, vagosData] = await Promise.all([
       plantillasService.listPage({ pageSize: 200 }),
       guiasService.listPage({ pageSize: 200 }),
@@ -93,7 +113,7 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
     ]);
     setEstadosTourCatalog(tourStatesData);
     setMetodosPagoCatalog(paymentMethodsData);
-  }, []);
+  }, [profile?.rol]);
 
   const loadToursPage = useCallback(async (cursor?: QueryDocumentSnapshot<DocumentData>) => {
     const result = await toursService.listPage({
@@ -178,6 +198,10 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
     if (!selectedTourId || !payload.selectedVagoId || payload.montoTotal <= 0 || isSubmittingInscripcion) {
       return;
     }
+    const selectedTour = tours.find((item) => item.id === selectedTourId);
+    if (!selectedTour) {
+      return;
+    }
     const selectedVago = vagos.find((item) => item.id === payload.selectedVagoId);
     if (!selectedVago) {
       return;
@@ -185,7 +209,13 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
     try {
       setIsSubmittingInscripcion(true);
       setErrorMessage(null);
-      await inscripcionesService.createForTour(selectedTourId, selectedVago, payload.montoTotal, payload.userId);
+      await inscripcionesService.createForTour(
+        selectedTourId,
+        selectedVago,
+        payload.montoTotal,
+        payload.userId,
+        selectedTour.cupoMaximo,
+      );
       await loadDetailData(selectedTourId);
     } catch (error) {
       setErrorMessage(toServiceErrorMessage(error));
@@ -194,7 +224,15 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
     }
   };
 
-  const createPago = async (payload: { inscripcionId: string; monto: number; metodoPago: string; metodoPagoId?: string }): Promise<boolean> => {
+  const createPago = async (payload: {
+    inscripcionId: string;
+    monto: number;
+    metodoPago: string;
+    metodoPagoId?: string;
+    registradoPor: string;
+    comprobanteUrl?: string;
+    notas?: string;
+  }): Promise<boolean> => {
     if (!selectedTourId || !payload.inscripcionId || payload.monto <= 0 || isSubmittingPago) {
       return false;
     }
@@ -213,6 +251,9 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
         metodoPago: payload.metodoPago,
         metodoPagoId: payload.metodoPagoId,
         fecha: new Date(),
+        registradoPor: payload.registradoPor,
+        comprobanteUrl: payload.comprobanteUrl,
+        notas: payload.notas,
       });
       await loadDetailData(selectedTourId);
       return true;

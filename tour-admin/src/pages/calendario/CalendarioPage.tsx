@@ -2,12 +2,19 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
+import type { EventClickArg } from "@fullcalendar/core";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
 import { toursService } from "@/services/toursService";
 import { guiasService } from "@/services/guiasService";
+import { inscripcionesService } from "@/services/inscripcionesService";
+import { notificacionesService } from "@/services/notificacionesService";
 import { useAuth } from "@/hooks/useAuth";
+import { toServiceErrorMessage } from "@/services/serviceErrors";
 
 const statusColorMap: Record<string, string> = {
   publicado: "#5ea59b",
@@ -15,20 +22,39 @@ const statusColorMap: Record<string, string> = {
   borrador: "#6b7b7a",
   cancelado: "#c0544a",
   realizado: "#0e3832",
+  en_curso: "#d97706",
 };
 const MOBILE_LAYOUT_BREAKPOINT = 1024;
 
+interface CalendarEventRecord {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  color: string;
+  extendedProps: {
+    guiaId: string;
+    guiaIds: string[];
+    estado: string;
+    inscritos: number;
+    cupoMaximo: number;
+  };
+}
+
 export function CalendarioPage() {
+  const navigate = useNavigate();
   const { profile } = useAuth();
-  const [events, setEvents] = useState<
-    Array<{ id: string; title: string; start: Date; end: Date; color: string; extendedProps: { guiaId: string; estado: string } }>
-  >([]);
+  const canSendNotifications = profile?.rol === "admin" || profile?.rol === "operador";
+  const [events, setEvents] = useState<CalendarEventRecord[]>([]);
   const [guides, setGuides] = useState<Array<{ id: string; name: string }>>([]);
   const [guideFilter, setGuideFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [isMobile, setIsMobile] = useState<boolean>(() =>
     typeof window !== "undefined" ? window.innerWidth < MOBILE_LAYOUT_BREAKPOINT : false,
   );
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEventRecord | null>(null);
+  const [reminderError, setReminderError] = useState<string | null>(null);
+  const [isSendingReminder, setIsSendingReminder] = useState<boolean>(false);
 
   useEffect(() => {
     const syncViewport = () => setIsMobile(window.innerWidth < MOBILE_LAYOUT_BREAKPOINT);
@@ -44,16 +70,27 @@ export function CalendarioPage() {
         guiasService.list(),
       ]);
       setGuides(allGuides.map((item) => ({ id: item.id, name: `${item.nombre} ${item.apellido}` })));
-      setEvents(
-        tours.map((tour) => ({
-          id: tour.id,
-          title: tour.nombre,
-          start: new Date(tour.fechaInicio),
-          end: new Date(tour.fechaFin),
-          color: statusColorMap[tour.estado] ?? "#92c7c7",
-          extendedProps: { guiaId: tour.guiaId, estado: tour.estado },
-        })),
+      const built = await Promise.all(
+        tours.map(async (tour) => {
+          const inscritos = await inscripcionesService.countActivas(tour.id);
+          const guiaIdsList = tour.guiaIds?.length ? tour.guiaIds : tour.guiaId ? [tour.guiaId] : [];
+          return {
+            id: tour.id,
+            title: `${tour.nombre} (${inscritos}/${tour.cupoMaximo})`,
+            start: new Date(tour.fechaInicio),
+            end: new Date(tour.fechaFin),
+            color: statusColorMap[tour.estado] ?? "#92c7c7",
+            extendedProps: {
+              guiaId: tour.guiaId,
+              guiaIds: guiaIdsList,
+              estado: tour.estado,
+              inscritos,
+              cupoMaximo: tour.cupoMaximo,
+            },
+          } satisfies CalendarEventRecord;
+        }),
       );
+      setEvents(built);
     };
     void load();
   }, [profile?.guiaId, profile?.rol]);
@@ -61,18 +98,47 @@ export function CalendarioPage() {
   const filteredEvents = useMemo(
     () =>
       events.filter((event) => {
-        const matchesGuide = guideFilter ? event.extendedProps.guiaId === guideFilter : true;
+        const matchesGuide = guideFilter
+          ? event.extendedProps.guiaId === guideFilter || event.extendedProps.guiaIds.includes(guideFilter)
+          : true;
         const matchesStatus = statusFilter ? event.extendedProps.estado === statusFilter : true;
         return matchesGuide && matchesStatus;
       }),
     [events, guideFilter, statusFilter],
   );
 
+  const handleEventClick = (info: EventClickArg) => {
+    const found = events.find((item) => item.id === info.event.id);
+    if (found) {
+      setSelectedEvent(found);
+      setReminderError(null);
+    }
+  };
+
+  const sendReminderFromCalendar = async () => {
+    if (!selectedEvent || !canSendNotifications) {
+      return;
+    }
+    setIsSendingReminder(true);
+    setReminderError(null);
+    try {
+      await notificacionesService.sendManualReminder(
+        selectedEvent.id,
+        "Recordatorio enviado manualmente desde el calendario.",
+      );
+      setSelectedEvent(null);
+    } catch (error) {
+      setReminderError(toServiceErrorMessage(error));
+    } finally {
+      setIsSendingReminder(false);
+    }
+  };
+
   return (
     <>
       <PageHeader
         title="Calendario de ocurrencias"
-        description="Vista mensual y semanal con filtros por estado y guía."
+        description="Vista mensual y semanal con filtros por estado y guía. Pulse un evento para ver detalle y acciones."
       />
       <Card>
         <div className="mb-3 grid gap-2 md:grid-cols-2">
@@ -102,6 +168,7 @@ export function CalendarioPage() {
               <option value="">Todos</option>
               <option value="borrador">Borrador</option>
               <option value="publicado">Publicado</option>
+              <option value="en_curso">En curso</option>
               <option value="lleno">Lleno</option>
               <option value="cancelado">Cancelado</option>
               <option value="realizado">Realizado</option>
@@ -118,10 +185,57 @@ export function CalendarioPage() {
           }
           locale="es"
           events={filteredEvents}
+          eventClick={handleEventClick}
           height="auto"
           dayMaxEventRows={isMobile ? 2 : 4}
         />
       </Card>
+
+      <Modal
+        isOpen={selectedEvent !== null}
+        onClose={() => setSelectedEvent(null)}
+        title={selectedEvent?.title ?? "Detalle"}
+      >
+        {selectedEvent ? (
+          <div className="space-y-3 text-sm text-textDark">
+            <p>
+              <span className="text-neutral">Estado:</span> {selectedEvent.extendedProps.estado}
+            </p>
+            <p>
+              <span className="text-neutral">Inscripciones:</span> {selectedEvent.extendedProps.inscritos} /{" "}
+              {selectedEvent.extendedProps.cupoMaximo}
+            </p>
+            <p>
+              <span className="text-neutral">Inicio:</span> {selectedEvent.start.toLocaleString("es-SV")}
+            </p>
+            <p>
+              <span className="text-neutral">Fin:</span> {selectedEvent.end.toLocaleString("es-SV")}
+            </p>
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Button
+                type="button"
+                onClick={() => {
+                  navigate(`/tours?tour=${selectedEvent.id}`);
+                  setSelectedEvent(null);
+                }}
+              >
+                Abrir en Tours
+              </Button>
+              {canSendNotifications ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={isSendingReminder}
+                  onClick={() => void sendReminderFromCalendar()}
+                >
+                  {isSendingReminder ? "Enviando…" : "Enviar recordatorio"}
+                </Button>
+              ) : null}
+            </div>
+            {reminderError ? <p className="text-danger">{reminderError}</p> : null}
+          </div>
+        ) : null}
+      </Modal>
     </>
   );
 }

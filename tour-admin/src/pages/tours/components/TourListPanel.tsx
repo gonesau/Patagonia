@@ -9,10 +9,12 @@ interface TourListPanelProps {
   tours: TourOcurrencia[];
   hasMore: boolean;
   isLoadingMore: boolean;
+  isAdmin: boolean;
   onAddTour: () => void;
   onSelectTour: (tourId: string) => void;
   onEditTour: (tour: TourOcurrencia) => void;
   onDeleteTour: (tour: TourOcurrencia) => void;
+  onDuplicateTour?: (tour: TourOcurrencia) => void;
   onLoadMore: () => void;
 }
 
@@ -20,10 +22,12 @@ export function TourListPanel({
   tours,
   hasMore,
   isLoadingMore,
+  isAdmin,
   onAddTour,
   onSelectTour,
   onEditTour,
   onDeleteTour,
+  onDuplicateTour,
   onLoadMore,
 }: TourListPanelProps) {
   return (
@@ -33,7 +37,7 @@ export function TourListPanel({
           <ClipboardList size={18} strokeWidth={1.8} />
           Listado de tours
         </h3>
-        <Button onClick={onAddTour}>Agregar tour</Button>
+        {isAdmin ? <Button onClick={onAddTour}>Agregar tour</Button> : null}
       </div>
       <Table
         emptyMessage="No hay tours registrados."
@@ -52,15 +56,20 @@ export function TourListPanel({
             tour.estado,
             `${tour.cupoMinimo}-${tour.cupoMaximo}`,
             `$${tour.precioVenta.toFixed(2)}`,
-            (
+            isAdmin ? (
               <TableActions
                 key={`actions-${tour.id}`}
                 onDelete={() => onDeleteTour(tour)}
+                onDuplicate={onDuplicateTour ? () => onDuplicateTour(tour) : undefined}
                 onEdit={() => {
                   onSelectTour(tour.id);
                   onEditTour(tour);
                 }}
               />
+            ) : (
+              <span key={`ro-${tour.id}`} className="text-xs text-neutral">
+                Solo lectura
+              </span>
             ),
           ],
         }))}

@@ -33,6 +33,14 @@
       ]
     },
     {
+      "collectionGroup": "vagos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "nivelExperienciaId", "order": "ASCENDING" },
+        { "fieldPath": "creadoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "pagos",
       "queryScope": "COLLECTION",
       "fields": [

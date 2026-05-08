@@ -5,7 +5,15 @@ service firebase.storage {
       return request.auth != null && request.auth.token.rol == 'admin';
     }
 
-    match /{allPaths=**} {
+    match /comprobantes/{tourId}/{fileName} {
+      allow read, write: if isAdmin();
+    }
+
+    match /guias/{guiaId}/documentos/{fileName} {
+      allow read, write: if isAdmin();
+    }
+
+    match /configuracion/{fileName} {
       allow read, write: if isAdmin();
     }
   }

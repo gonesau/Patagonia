@@ -2,6 +2,7 @@ import { logger } from "firebase-functions";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { adminDb } from "../shared/firebaseAdmin";
 import { sendEmail } from "../shared/emailService";
+import { getPlantillasEmailConfig } from "../shared/configEmailTemplates";
 
 export const enviarLinkFotos = onCall(async (request) => {
   if (!request.auth) {
@@ -26,12 +27,22 @@ export const enviarLinkFotos = onCall(async (request) => {
     .where("estado", "!=", "cancelado")
     .get();
 
+  const plantillas = await getPlantillasEmailConfig();
+  const htmlExtra = plantillas.linkFotosCuerpoHtml ?? "";
+
   for (const doc of inscripciones.docs) {
     const data = doc.data();
+    const htmlBody = [
+      `<p>${mensajePersonalizado ?? "Gracias por participar."}</p>`,
+      htmlExtra,
+      `<p>Fotos: ${tour.driveFolderUrl}</p>`,
+    ]
+      .filter(Boolean)
+      .join("");
     await sendEmail({
       to: data.vagoEmail,
       subject: `Fotos del tour ${tour.nombre}`,
-      htmlBody: `<p>${mensajePersonalizado ?? "Gracias por participar."}</p><p>Fotos: ${tour.driveFolderUrl}</p>`,
+      htmlBody,
     });
   }
   await adminDb.collection("notificaciones").add({

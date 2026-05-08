@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -13,6 +13,7 @@ interface ComprasPanelProps {
   comprasGenerales: Compra[];
   categorias: CategoriaCompra[];
   isSubmitting: boolean;
+  isReadOnly?: boolean;
   onCreate: (payload: Omit<Compra, "id" | "creadoEn" | "actualizadoEn">) => Promise<void>;
   onUpdate: (compraId: string, payload: Partial<Omit<Compra, "id" | "creadoEn" | "actualizadoEn">>) => Promise<void>;
   onDelete: (compraId: string) => Promise<void>;
@@ -44,6 +45,7 @@ export function ComprasPanel({
   comprasGenerales,
   categorias,
   isSubmitting,
+  isReadOnly = false,
   onCreate,
   onUpdate,
   onDelete,
@@ -57,28 +59,40 @@ export function ComprasPanel({
 
   const comprasTourRows: TableRow[] = comprasTour.map((item) => ({
     key: item.id,
-    cells: [
-      item.nombre,
-      item.categoriaNombreSnapshot,
-      `$${item.monto.toFixed(2)}`,
-      formatDate(item.fecha),
-      <TableActions
-        key={`${item.id}-actions`}
-        onEdit={() => {
-          setEditingCompraId(item.id);
-          setFormState({
-            nombre: item.nombre,
-            descripcion: item.descripcion,
-            categoriaId: item.categoriaId,
-            monto: item.monto,
-            asociarAlTour: item.tourId === tourId,
-          });
-          setFormError(null);
-        }}
-        onDelete={() => void onDelete(item.id)}
-      />,
-    ],
+    cells: isReadOnly
+      ? [item.nombre, item.categoriaNombreSnapshot, `$${item.monto.toFixed(2)}`, formatDate(item.fecha)]
+      : [
+          item.nombre,
+          item.categoriaNombreSnapshot,
+          `$${item.monto.toFixed(2)}`,
+          formatDate(item.fecha),
+          <TableActions
+            key={`${item.id}-actions`}
+            onEdit={() => {
+              setEditingCompraId(item.id);
+              setFormState({
+                nombre: item.nombre,
+                descripcion: item.descripcion,
+                categoriaId: item.categoriaId,
+                monto: item.monto,
+                asociarAlTour: item.tourId === tourId,
+              });
+              setFormError(null);
+            }}
+            onDelete={() => void onDelete(item.id)}
+          />,
+        ],
   }));
+
+  const resumenPorCategoria = useMemo(() => {
+    const map = new Map<string, { count: number; subtotal: number }>();
+    for (const item of comprasTour) {
+      const key = item.categoriaNombreSnapshot || item.categoriaId;
+      const prev = map.get(key) ?? { count: 0, subtotal: 0 };
+      map.set(key, { count: prev.count + 1, subtotal: prev.subtotal + item.monto });
+    }
+    return Array.from(map.entries()).map(([categoria, data]) => ({ categoria, ...data }));
+  }, [comprasTour]);
 
   const comprasGeneralesRows: TableRow[] = comprasGenerales.map((item) => ({
     key: item.id,
@@ -123,6 +137,7 @@ export function ComprasPanel({
 
   return (
     <>
+      {!isReadOnly ? (
       <Card>
         <h3 className="mb-2 font-heading text-lg">Compras del tour</h3>
         {!hasActiveCategories ? (
@@ -192,14 +207,39 @@ export function ComprasPanel({
           </div>
         </div>
       </Card>
+      ) : (
+        <Card>
+          <h3 className="mb-2 font-heading text-lg">Compras del tour</h3>
+          <p className="text-sm text-neutral">Solo lectura: no puedes registrar compras con tu rol.</p>
+        </Card>
+      )}
       <div className="xl:col-span-2">
         <Card>
           <h4 className="mb-3 font-heading text-base">Compras asociadas al tour</h4>
           <Table
-            headers={["Nombre", "Categoría", "Monto", "Fecha", "Acciones"]}
+            headers={
+              isReadOnly
+                ? ["Nombre", "Categoría", "Monto", "Fecha"]
+                : ["Nombre", "Categoría", "Monto", "Fecha", "Acciones"]
+            }
             rows={comprasTourRows}
             emptyMessage="Aún no hay compras asociadas al tour."
           />
+          {resumenPorCategoria.length > 0 ? (
+            <div className="mt-4 rounded-md bg-primary/5 p-3 text-sm">
+              <p className="mb-2 font-semibold">Resumen por categoría</p>
+              <ul className="space-y-1">
+                {resumenPorCategoria.map((row) => (
+                  <li key={row.categoria}>
+                    {row.categoria}: {row.count} ítem(s) — ${row.subtotal.toFixed(2)}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 font-mono font-semibold">
+                Total: ${comprasTour.reduce((t, c) => t + c.monto, 0).toFixed(2)}
+              </p>
+            </div>
+          ) : null}
           <h4 className="mb-3 mt-6 font-heading text-base">Compras generales (no asociadas a tour)</h4>
           <Table
             headers={["Nombre", "Categoría", "Descripción", "Monto", "Fecha"]}

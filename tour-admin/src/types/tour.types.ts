@@ -8,6 +8,7 @@ export interface TourPlantilla {
   dificultad: string;
   wikiloc?: string;
   equipoRecomendado?: string;
+  queLlevar?: string;
   itinerarioTipo?: string;
   serviciosExtras?: string;
   politicaCancelacion?: string;
@@ -24,6 +25,7 @@ export interface TourOcurrencia {
   estadoId?: string;
   estado: string;
   guiaId: string;
+  guiaIds?: string[];
   fechaInicio: Date;
   fechaFin: Date;
   transporteId?: string;
@@ -31,12 +33,25 @@ export interface TourOcurrencia {
   cupoMinimo: number;
   precioVenta: number;
   puntoEncuentro: string;
+  coordenadasEncuentro?: { lat: number; lng: number };
+  /** Copiados desde plantilla al crear/editar; no modifican la plantilla maestra. */
+  distanciaKm?: number;
+  elevacionM?: number;
+  dificultad?: string;
+  wikiloc?: string;
+  equipoRecomendado?: string;
+  queLlevar?: string;
+  itinerarioTipo?: string;
+  serviciosExtras?: string;
+  politicaCancelacion?: string;
   costoTransporte?: number;
   costosExtras?: number;
   driveFolderUrl?: string;
   driveFolderId?: string;
   recordatorio7dEnviado: boolean;
   recordatorio1dEnviado: boolean;
+  /** Si false, el scheduler no envía recordatorios automáticos (7d/1d). */
+  recordatoriosAutomaticosHabilitados?: boolean;
   creadoEn: Date;
   creadoPor: string;
   actualizadoEn: Date;

@@ -19,12 +19,12 @@ export function Table({
   );
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="min-w-full table-striped bg-white text-left text-sm">
+    <div className="max-w-full overflow-x-auto rounded-lg border border-border">
+      <table className="min-w-full table-striped bg-white text-left text-sm md:table-fixed">
         <thead className="border-b border-border bg-[#f8f9fa]">
           <tr>
             {headers.map((header, index) => (
-              <th key={`header-${index}`} className="px-3 py-2 font-semibold text-textDark">
+              <th key={`header-${index}`} className="whitespace-nowrap px-3 py-2 font-semibold text-textDark">
                 {header}
               </th>
             ))}
@@ -35,7 +35,7 @@ export function Table({
             normalizedRows.map((row) => (
               <tr key={row.key} className="border-t border-border odd:bg-white even:bg-[#f8f9fa] hover:bg-primary/10">
                 {row.cells.map((cell, cellIndex) => (
-                  <td key={`${row.key}-cell-${cellIndex}`} className="px-3 py-2 align-middle text-textDark">
+                  <td key={`${row.key}-cell-${cellIndex}`} className="px-3 py-2 align-middle text-textDark md:break-words">
                     {cell}
                   </td>
                 ))}

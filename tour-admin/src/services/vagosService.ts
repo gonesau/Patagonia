@@ -95,12 +95,15 @@ export const vagosService = {
     searchTerm?: string;
     pageSize?: number;
     cursor?: QueryDocumentSnapshot<DocumentData>;
+    nivelExperienciaId?: string;
   }): Promise<PaginatedResult<Vago>> {
     const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
     const normalizedTerm = normalizeSearchText(options.searchTerm ?? "");
     const constraints: QueryConstraint[] = [];
     if (normalizedTerm) {
       constraints.push(where("searchPrefixes", "array-contains", normalizedTerm));
+    } else if (options.nivelExperienciaId) {
+      constraints.push(where("nivelExperienciaId", "==", options.nivelExperienciaId));
     }
     constraints.push(orderBy("creadoEn", "desc"));
     if (options.cursor) {
