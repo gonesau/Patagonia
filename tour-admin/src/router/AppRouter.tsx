@@ -13,6 +13,7 @@ import { ReportesPage } from "@/pages/reportes/ReportesPage";
 import { ConfiguracionPage } from "@/pages/configuracion/ConfiguracionPage";
 import { AccessDeniedPage } from "@/pages/auth/AccessDeniedPage";
 import type { UserRole } from "@/types/usuario.types";
+import { RouteErrorFallback } from "@/components/errors/RouteErrorFallback";
 
 function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
   const { firebaseUser, isLoading, role, errorMessage } = useAuth();
@@ -34,13 +35,15 @@ function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
 }
 
 const router = createBrowserRouter([
-  { path: "/login", element: <LoginPage /> },
-  { path: "/acceso-denegado", element: <AccessDeniedPage /> },
+  { path: "/login", element: <LoginPage />, errorElement: <RouteErrorFallback /> },
+  { path: "/acceso-denegado", element: <AccessDeniedPage />, errorElement: <RouteErrorFallback /> },
   {
     element: <ProtectedRoute />,
+    errorElement: <RouteErrorFallback />,
     children: [
       {
         element: <Layout />,
+        errorElement: <RouteErrorFallback />,
         children: [
           { path: "/", element: <Navigate to="/dashboard" replace /> },
           { path: "/dashboard", element: <DashboardPage /> },

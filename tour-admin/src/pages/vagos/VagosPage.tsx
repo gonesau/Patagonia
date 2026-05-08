@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -24,17 +25,24 @@ const defaultValues: VagoFormValues = {
   contactoEmergenciaRelacion: "",
   contactoEmergenciaTel: "",
 };
+const SEARCH_DEBOUNCE_MS = 300;
+const VAGOS_PAGE_SIZE = 20;
 
 export function VagosPage() {
   const { profile } = useAuth();
   const [vagos, setVagos] = useState<Vago[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [hasMore, setHasMore] = useState<boolean>(false);
+  const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | undefined>(undefined);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedVago, setSelectedVago] = useState<Vago | null>(null);
   const [vagoToDelete, setVagoToDelete] = useState<Vago | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
+  const debounceTimerRef = useRef<number | null>(null);
+
   const form = useForm<VagoFormValues>({
     resolver: zodResolver(vagoFormSchema),
     defaultValues,
@@ -42,21 +50,44 @@ export function VagosPage() {
     reValidateMode: "onChange",
   });
 
-  const loadVagos = async (term = "") => {
+  const loadVagos = async (term = "", nextCursor?: QueryDocumentSnapshot<DocumentData>) => {
     try {
-      setIsLoading(true);
+      if (nextCursor) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoading(true);
+      }
       setErrorMessage(null);
-      const data = await vagosService.list(term);
-      setVagos(data);
+      const result = await vagosService.listPage({
+        searchTerm: term,
+        pageSize: VAGOS_PAGE_SIZE,
+        cursor: nextCursor,
+      });
+      if (nextCursor) {
+        setVagos((current) => [...current, ...result.items]);
+      } else {
+        setVagos(result.items);
+      }
+      setCursor(result.nextCursor);
+      setHasMore(Boolean(result.nextCursor));
     } catch (error) {
       setErrorMessage(toServiceErrorMessage(error));
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
   };
 
   useEffect(() => {
-    void loadVagos();
+    const timer = window.setTimeout(() => {
+      void loadVagos();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      if (debounceTimerRef.current) {
+        window.clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, []);
 
   const openCreateModal = () => {
@@ -143,7 +174,12 @@ export function VagosPage() {
               onChange={(event) => {
                 const nextTerm = event.target.value;
                 setSearchTerm(nextTerm);
-                void loadVagos(nextTerm);
+                if (debounceTimerRef.current) {
+                  window.clearTimeout(debounceTimerRef.current);
+                }
+                debounceTimerRef.current = window.setTimeout(() => {
+                  void loadVagos(nextTerm);
+                }, SEARCH_DEBOUNCE_MS);
               }}
             />
           </div>
@@ -154,20 +190,29 @@ export function VagosPage() {
         {isLoading ? (
           <p className="text-sm text-neutral">Cargando vagos...</p>
         ) : (
-          <Table
-            emptyMessage="No hay vagos registrados."
-            headers={["Nombre", "Teléfono", "Email", "Estado", "Acciones"]}
-            rows={vagos.map((vago) => ({
-              key: vago.id,
-              cells: [
-                `${vago.nombre} ${vago.apellido}`,
-                formatPhone(vago.telefono),
-                vago.email,
-                vago.activo ? "Activo" : "Inactivo",
-                <TableActions key={`actions-${vago.id}`} onDelete={() => setVagoToDelete(vago)} onEdit={() => openEditModal(vago)} />,
-              ],
-            }))}
-          />
+          <>
+            <Table
+              emptyMessage="No hay vagos registrados."
+              headers={["Nombre", "Teléfono", "Email", "Estado", "Acciones"]}
+              rows={vagos.map((vago) => ({
+                key: vago.id,
+                cells: [
+                  `${vago.nombre} ${vago.apellido}`,
+                  formatPhone(vago.telefono),
+                  vago.email,
+                  vago.activo ? "Activo" : "Inactivo",
+                  <TableActions key={`actions-${vago.id}`} onDelete={() => setVagoToDelete(vago)} onEdit={() => openEditModal(vago)} />,
+                ],
+              }))}
+            />
+            {hasMore ? (
+              <div className="mt-3 flex justify-end">
+                <Button variant="ghost" disabled={isLoadingMore} onClick={() => void loadVagos(searchTerm, cursor)}>
+                  {isLoadingMore ? "Cargando..." : "Cargar más"}
+                </Button>
+              </div>
+            ) : null}
+          </>
         )}
       </Card>
       <Modal isOpen={isFormModalOpen} onClose={closeFormModal} size="lg" title={selectedVago ? "Editar vago" : "Agregar vago"}>

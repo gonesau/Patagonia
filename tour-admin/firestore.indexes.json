@@ -1,4 +1,45 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "tours",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "guiaId", "order": "ASCENDING" },
+        { "fieldPath": "fechaInicio", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tours",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "recordatorio7dEnviado", "order": "ASCENDING" },
+        { "fieldPath": "fechaInicio", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tours",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "recordatorio1dEnviado", "order": "ASCENDING" },
+        { "fieldPath": "fechaInicio", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "vagos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "searchPrefixes", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "creadoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pagos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tourId", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "DESCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

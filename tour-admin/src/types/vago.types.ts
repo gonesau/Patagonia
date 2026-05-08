@@ -16,4 +16,5 @@ export interface Vago {
   activo: boolean;
   creadoEn: Date;
   creadoPor: string;
+  searchPrefixes?: string[];
 }

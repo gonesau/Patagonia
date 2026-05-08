@@ -3,15 +3,20 @@ import {
   collection,
   doc,
   getDocs,
+  limit,
+  orderBy,
   query,
   serverTimestamp,
   getDoc,
+  startAfter,
+  type QueryConstraint,
   where,
 } from "firebase/firestore";
 import type { Pago } from "@/types/pago.types";
 import { db } from "./firebase";
 import { inscripcionesService } from "./inscripcionesService";
 import type { Inscripcion } from "@/types/inscripcion.types";
+import { DEFAULT_PAGE_SIZE, type PaginatedResult, type PaginationParams } from "./pagination";
 
 export const pagosService = {
   async listByTour(tourId: string): Promise<Pago[]> {
@@ -39,5 +44,19 @@ export const pagosService = {
       paidAmount <= 0 ? "pendiente" : paidAmount < currentInscripcion.montoTotal ? "parcial" : "completo";
 
     await inscripcionesService.updatePaymentState(data.tourId, data.inscripcionId, paidAmount, paymentState);
+  },
+  async listPageByTour(tourId: string, options: PaginationParams = {}): Promise<PaginatedResult<Pago>> {
+    const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+    const pagosCollection = collection(db, "pagos");
+    const constraints: QueryConstraint[] = [where("tourId", "==", tourId), orderBy("fecha", "desc"), limit(pageSize)];
+    if (options.cursor) {
+      constraints.splice(1, 0, startAfter(options.cursor));
+    }
+    const snapshot = await getDocs(query(pagosCollection, ...constraints));
+    const items = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Pago);
+    return {
+      items,
+      nextCursor: snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : undefined,
+    };
   },
 };

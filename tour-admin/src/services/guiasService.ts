@@ -2,17 +2,21 @@ import {
   addDoc,
   collection,
   getDocs,
+  limit as queryLimit,
   limit,
   orderBy,
   query,
   serverTimestamp,
+  startAfter,
   updateDoc,
   where,
   doc,
+  type QueryConstraint,
 } from "firebase/firestore";
 import type { Guia } from "@/types/guia.types";
 import { db } from "./firebase";
 import { ServiceError } from "./serviceErrors";
+import { DEFAULT_PAGE_SIZE, type PaginatedResult, type PaginationParams } from "./pagination";
 
 const guiasCollection = collection(db, "guias");
 
@@ -40,5 +44,18 @@ export const guiasService = {
       await ensureUniqueEmail(data.email, guiaId);
     }
     await updateDoc(doc(db, "guias", guiaId), data);
+  },
+  async listPage(options: PaginationParams = {}): Promise<PaginatedResult<Guia>> {
+    const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+    const constraints: QueryConstraint[] = [orderBy("creadoEn", "desc"), queryLimit(pageSize)];
+    if (options.cursor) {
+      constraints.splice(1, 0, startAfter(options.cursor));
+    }
+    const snapshot = await getDocs(query(guiasCollection, ...constraints));
+    const items = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Guia);
+    return {
+      items,
+      nextCursor: snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : undefined,
+    };
   },
 };

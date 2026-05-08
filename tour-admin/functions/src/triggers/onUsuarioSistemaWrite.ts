@@ -30,8 +30,9 @@ export const onUsuarioSistemaWrite = onDocumentWritten(
       return;
     }
 
-    await getAuth().setCustomUserClaims(userId, { rol });
-    logger.info("Custom claims sincronizados", { userId, rol });
+    const guiaId = typeof after.guiaId === "string" && after.guiaId.length > 0 ? after.guiaId : null;
+    await getAuth().setCustomUserClaims(userId, { rol, guiaId });
+    logger.info("Custom claims sincronizados", { userId, rol, guiaId });
   },
 );
 

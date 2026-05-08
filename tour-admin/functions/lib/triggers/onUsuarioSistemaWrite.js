@@ -22,8 +22,9 @@ exports.onUsuarioSistemaWrite = (0, firestore_1.onDocumentWritten)("usuarios_sis
         await limpiarClaims(userId);
         return;
     }
-    await (0, auth_1.getAuth)().setCustomUserClaims(userId, { rol });
-    firebase_functions_1.logger.info("Custom claims sincronizados", { userId, rol });
+    const guiaId = typeof after.guiaId === "string" && after.guiaId.length > 0 ? after.guiaId : null;
+    await (0, auth_1.getAuth)().setCustomUserClaims(userId, { rol, guiaId });
+    firebase_functions_1.logger.info("Custom claims sincronizados", { userId, rol, guiaId });
 });
 async function limpiarClaims(userId) {
     try {

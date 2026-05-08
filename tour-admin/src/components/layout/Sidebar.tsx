@@ -1,10 +1,22 @@
 import { NavLink } from "react-router-dom";
-import { BookTemplate, CalendarDays, Compass, CreditCard, Home, MapPinned, Settings, Users, X } from "lucide-react";
+import {
+  BookTemplate,
+  Bus,
+  CalendarDays,
+  Compass,
+  CreditCard,
+  Home,
+  MapPinned,
+  Settings,
+  Users,
+  X,
+} from "lucide-react";
 
 const links = [
   { to: "/dashboard", label: "Dashboard", icon: Home },
   { to: "/vagos", label: "Vagos", icon: Users },
   { to: "/guias", label: "Guías", icon: MapPinned },
+  { to: "/transporte", label: "Transporte", icon: Bus },
   { to: "/plantillas", label: "Plantillas", icon: BookTemplate },
   { to: "/tours", label: "Tours", icon: Compass },
   { to: "/calendario", label: "Calendario", icon: CalendarDays },

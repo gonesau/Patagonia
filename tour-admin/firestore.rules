@@ -22,11 +22,11 @@ service cloud.firestore {
     }
 
     match /tours/{tourId} {
-      allow read: if isAdmin() || (isGuia() && resource.data.guiaId == request.auth.uid);
+      allow read: if isAdmin() || (isGuia() && resource.data.guiaId == request.auth.token.guiaId);
       allow write: if isAdmin();
 
       match /inscripciones/{inscripcionId} {
-        allow read: if isAdmin() || (isGuia() && get(/databases/$(database)/documents/tours/$(tourId)).data.guiaId == request.auth.uid);
+        allow read: if isAdmin() || (isGuia() && get(/databases/$(database)/documents/tours/$(tourId)).data.guiaId == request.auth.token.guiaId);
         allow write: if isAdmin();
       }
 

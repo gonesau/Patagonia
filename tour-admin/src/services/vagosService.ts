@@ -6,15 +6,46 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  startAfter,
   updateDoc,
   where,
   doc,
+  getDoc,
+  type QueryConstraint,
+  type DocumentData,
+  type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import type { Vago } from "@/types/vago.types";
 import { db } from "./firebase";
 import { ServiceError } from "./serviceErrors";
+import { DEFAULT_PAGE_SIZE, type PaginatedResult } from "./pagination";
 
 const vagosCollection = collection(db, "vagos");
+const SEARCH_PREFIXES_LIMIT = 40;
+
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function buildSearchPrefixes(data: Pick<Vago, "nombre" | "apellido" | "email" | "telefono">): string[] {
+  const base = [data.nombre, data.apellido, data.email, data.telefono]
+    .map(normalizeSearchText)
+    .filter(Boolean);
+  const prefixes = new Set<string>();
+  for (const item of base) {
+    for (let index = 1; index <= item.length; index += 1) {
+      prefixes.add(item.slice(0, index));
+      if (prefixes.size >= SEARCH_PREFIXES_LIMIT) {
+        return Array.from(prefixes);
+      }
+    }
+  }
+  return Array.from(prefixes);
+}
 
 async function ensureUniqueEmail(email: string, excludeId?: string): Promise<void> {
   const emailQuery = query(vagosCollection, where("email", "==", email), limit(1));
@@ -27,32 +58,15 @@ async function ensureUniqueEmail(email: string, excludeId?: string): Promise<voi
 
 export const vagosService = {
   async list(searchTerm = ""): Promise<Vago[]> {
-    const listQuery = query(vagosCollection, orderBy("creadoEn", "desc"));
-    const snapshot = await getDocs(listQuery);
-    const all = snapshot.docs.map(
-      (item) =>
-        ({
-          id: item.id,
-          ...item.data(),
-        }) as Vago,
-    );
-    const normalized = searchTerm.trim().toLowerCase();
-    if (!normalized) {
-      return all;
-    }
-
-    return all.filter((vago) =>
-      [vago.nombre, vago.apellido, vago.email, vago.telefono]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalized),
-    );
+    const page = await this.listPage({ searchTerm, pageSize: 100 });
+    return page.items;
   },
 
   async create(data: Omit<Vago, "id" | "creadoEn">): Promise<void> {
     await ensureUniqueEmail(data.email);
     await addDoc(vagosCollection, {
       ...data,
+      searchPrefixes: buildSearchPrefixes(data),
       creadoEn: serverTimestamp(),
     });
   },
@@ -62,6 +76,42 @@ export const vagosService = {
       await ensureUniqueEmail(data.email, vagoId);
     }
     const vagoRef = doc(db, "vagos", vagoId);
-    await updateDoc(vagoRef, data);
+    const patchData: Partial<Vago> & { searchPrefixes?: string[] } = { ...data };
+    if (data.nombre || data.apellido || data.email || data.telefono) {
+      const snapshot = await getDoc(vagoRef);
+      const currentData = snapshot.exists() ? (snapshot.data() as Vago) : undefined;
+      if (currentData) {
+        patchData.searchPrefixes = buildSearchPrefixes({
+          nombre: data.nombre ?? currentData.nombre,
+          apellido: data.apellido ?? currentData.apellido,
+          email: data.email ?? currentData.email,
+          telefono: data.telefono ?? currentData.telefono,
+        });
+      }
+    }
+    await updateDoc(vagoRef, patchData);
+  },
+  async listPage(options: {
+    searchTerm?: string;
+    pageSize?: number;
+    cursor?: QueryDocumentSnapshot<DocumentData>;
+  }): Promise<PaginatedResult<Vago>> {
+    const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+    const normalizedTerm = normalizeSearchText(options.searchTerm ?? "");
+    const constraints: QueryConstraint[] = [];
+    if (normalizedTerm) {
+      constraints.push(where("searchPrefixes", "array-contains", normalizedTerm));
+    }
+    constraints.push(orderBy("creadoEn", "desc"));
+    if (options.cursor) {
+      constraints.push(startAfter(options.cursor));
+    }
+    constraints.push(limit(pageSize));
+    const snapshot = await getDocs(query(vagosCollection, ...constraints));
+    const items = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Vago);
+    return {
+      items,
+      nextCursor: snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : undefined,
+    };
   },
 };

@@ -57,11 +57,31 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
 
 const EMBEDDED_BROWSER_REGEX = /(FBAN|FBAV|Instagram|Line|wv|WebView|Twitter|LinkedInApp)/i;
 
+const CLAIM_WAIT_MAX_ATTEMPTS = 6;
+const CLAIM_WAIT_DELAY_MS = 500;
+
 function detectEmbeddedBrowser(): boolean {
   if (typeof navigator === "undefined") {
     return false;
   }
   return EMBEDDED_BROWSER_REGEX.test(navigator.userAgent);
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function awaitTokenWithRoleClaim(user: User, expectedRole: UserRole): Promise<void> {
+  for (let attempt = 0; attempt < CLAIM_WAIT_MAX_ATTEMPTS; attempt += 1) {
+    const tokenResult = await user.getIdTokenResult(true);
+    if (tokenResult.claims.rol === expectedRole) {
+      return;
+    }
+    await delay(CLAIM_WAIT_DELAY_MS);
+  }
+  throw new Error(
+    "Tu sesión aún no tiene los permisos asignados, intenta iniciar sesión de nuevo en unos segundos.",
+  );
 }
 
 function shouldFallbackToRedirect(error: unknown): boolean {
@@ -102,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isEmbeddedBrowser] = useState<boolean>(() => detectEmbeddedBrowser());
 
-  const loadUserProfile = useCallback(async (uid: string) => {
+  const loadUserProfile = useCallback(async (uid: string): Promise<UserRole> => {
     const userRef = doc(db, "usuarios_sistema", uid);
     const snapshot = await getDoc(userRef);
     if (!snapshot.exists()) {
@@ -117,6 +137,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ...data,
       id: uid,
     });
+
+    return data.rol;
   }, []);
 
   useEffect(() => {
@@ -140,8 +162,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-          await loadUserProfile(currentUser.uid);
-          await currentUser.getIdToken(true);
+          const expectedRole = await loadUserProfile(currentUser.uid);
+          await awaitTokenWithRoleClaim(currentUser, expectedRole);
         } catch (error) {
           setProfile(null);
           setErrorMessage(

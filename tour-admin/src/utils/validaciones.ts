@@ -54,14 +54,31 @@ export const plantillaFormSchema = z.object({
 });
 export type PlantillaFormValues = z.infer<typeof plantillaFormSchema>;
 
-export const tourFormSchema = z.object({
-  plantillaId: z.string().min(1, "Plantilla requerida"),
-  nombre: z.string().min(1, "Nombre requerido"),
-  estado: z.enum(["borrador", "publicado", "lleno", "en_curso", "realizado", "cancelado"]),
-  guiaId: z.string().min(1, "Guía requerido"),
-  cupoMaximo: z.number().min(1, "Cupo inválido"),
-  cupoMinimo: z.number().min(1, "Cupo inválido"),
-  precioVenta: z.number().min(0, "Precio inválido"),
-  puntoEncuentro: z.string().min(1, "Punto de encuentro requerido"),
-});
+export const tourFormSchema = z
+  .object({
+    plantillaId: z.string().min(1, "Plantilla requerida"),
+    nombre: z.string().min(1, "Nombre requerido"),
+    estado: z.enum(["borrador", "publicado", "lleno", "en_curso", "realizado", "cancelado"]),
+    guiaId: z.string().min(1, "Guía requerido"),
+    fechaInicio: z.string().min(1, "Fecha de inicio requerida"),
+    fechaFin: z.string().min(1, "Fecha de fin requerida"),
+    cupoMaximo: z.number().min(1, "Cupo inválido"),
+    cupoMinimo: z.number().min(1, "Cupo inválido"),
+    precioVenta: z.number().min(0, "Precio inválido"),
+    puntoEncuentro: z.string().min(1, "Punto de encuentro requerido"),
+  })
+  .superRefine((values, ctx) => {
+    const inicio = new Date(values.fechaInicio);
+    const fin = new Date(values.fechaFin);
+    if (Number.isNaN(inicio.getTime()) || Number.isNaN(fin.getTime())) {
+      return;
+    }
+    if (fin < inicio) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fechaFin"],
+        message: "La fecha de fin debe ser igual o posterior a la fecha de inicio.",
+      });
+    }
+  });
 export type TourFormValues = z.infer<typeof tourFormSchema>;

@@ -1,58 +1,79 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
-import { Table } from "@/components/ui/Table";
-import { TableActions } from "@/components/ui/TableActions";
 import { useAuth } from "@/hooks/useAuth";
 import { toursService } from "@/services/toursService";
-import { plantillasService } from "@/services/plantillasService";
-import { guiasService } from "@/services/guiasService";
-import { vagosService } from "@/services/vagosService";
-import { inscripcionesService } from "@/services/inscripcionesService";
-import { pagosService } from "@/services/pagosService";
-import { comprasService } from "@/services/comprasService";
 import { calculateTourMargin } from "@/utils/financiero.utils";
 import { tourFormSchema, type TourFormValues } from "@/utils/validaciones";
-import type { TourOcurrencia, TourPlantilla } from "@/types/tour.types";
-import type { Guia } from "@/types/guia.types";
-import type { Vago } from "@/types/vago.types";
-import type { Inscripcion } from "@/types/inscripcion.types";
-import type { Pago } from "@/types/pago.types";
-import type { Compra } from "@/types/compra.types";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
-import { CircleDollarSign, ClipboardList, HandCoins, ReceiptText, UserPlus } from "lucide-react";
+import type { TourOcurrencia } from "@/types/tour.types";
+import { TourListPanel } from "./components/TourListPanel";
+import { TourDetailPanel } from "./components/TourDetailPanel";
+import { InscripcionesPanel } from "./components/InscripcionesPanel";
+import { PagosPanel } from "./components/PagosPanel";
+import { ComprasPanel } from "./components/ComprasPanel";
+import { useToursPageState } from "./hooks/useToursPageState";
 
 const defaultValues: TourFormValues = {
   plantillaId: "",
   nombre: "",
   estado: "borrador",
   guiaId: "",
+  fechaInicio: "",
+  fechaFin: "",
   cupoMaximo: 20,
   cupoMinimo: 8,
   precioVenta: 25,
   puntoEncuentro: "",
 };
 
+function toLocalDateTimeString(value: Date | undefined): string {
+  if (!value) {
+    return "";
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  const pad = (segment: number) => segment.toString().padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export function ToursPage() {
   const { profile } = useAuth();
-  const [tours, setTours] = useState<TourOcurrencia[]>([]);
-  const [plantillas, setPlantillas] = useState<TourPlantilla[]>([]);
-  const [guias, setGuias] = useState<Guia[]>([]);
-  const [vagos, setVagos] = useState<Vago[]>([]);
-  const [inscripciones, setInscripciones] = useState<Inscripcion[]>([]);
-  const [pagos, setPagos] = useState<Pago[]>([]);
-  const [compras, setCompras] = useState<Compra[]>([]);
-  const [selectedTourId, setSelectedTourId] = useState<string>("");
+  const {
+    tours,
+    plantillas,
+    guias,
+    vagos,
+    inscripciones,
+    pagos,
+    compras,
+    selectedTourId,
+    paymentInscripcionId,
+    errorMessage,
+    hasMoreTours,
+    isLoadingMoreTours,
+    isSubmittingInscripcion,
+    isSubmittingPago,
+    isSubmittingCompra,
+    setSelectedTourId,
+    setPaymentInscripcionId,
+    setErrorMessage,
+    reloadTours,
+    loadMoreTours,
+    createInscripcion,
+    createPago,
+    createCompra,
+  } = useToursPageState(profile);
+
   const [selectedVagoId, setSelectedVagoId] = useState<string>("");
   const [inscripcionMontoTotal, setInscripcionMontoTotal] = useState<number>(0);
-  const [paymentInscripcionId, setPaymentInscripcionId] = useState<string>("");
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedTourToEdit, setSelectedTourToEdit] = useState<TourOcurrencia | null>(null);
   const [tourToDelete, setTourToDelete] = useState<TourOcurrencia | null>(null);
@@ -64,59 +85,6 @@ export function ToursPage() {
     mode: "onBlur",
     reValidateMode: "onChange",
   });
-
-  const loadCatalogs = async () => {
-    const [plantillasData, guiasData, vagosData] = await Promise.all([
-      plantillasService.list(),
-      guiasService.list(),
-      vagosService.list(),
-    ]);
-    setPlantillas(plantillasData.filter((item) => item.activa));
-    setGuias(guiasData.filter((item) => item.estado === "activo"));
-    setVagos(vagosData.filter((item) => item.activo));
-  };
-
-  const loadTours = async () => {
-    const items = await toursService.list(profile?.rol === "guia" ? profile.guiaId : undefined);
-    setTours(items);
-    if (!selectedTourId && items[0]) {
-      setSelectedTourId(items[0].id);
-    }
-  };
-
-  const loadDetailData = async (tourId: string) => {
-    const [inscripcionesData, pagosData, comprasData] = await Promise.all([
-      inscripcionesService.listByTour(tourId),
-      pagosService.listByTour(tourId),
-      comprasService.listByTour(tourId),
-    ]);
-    setInscripciones(inscripcionesData);
-    setPagos(pagosData);
-    setCompras(comprasData);
-    if (!paymentInscripcionId && inscripcionesData[0]) {
-      setPaymentInscripcionId(inscripcionesData[0].id);
-    }
-  };
-
-  useEffect(() => {
-    const initialize = async () => {
-      try {
-        setErrorMessage(null);
-        await loadCatalogs();
-        await loadTours();
-      } catch (error) {
-        setErrorMessage(toServiceErrorMessage(error));
-      }
-    };
-    void initialize();
-  }, []);
-
-  useEffect(() => {
-    if (!selectedTourId) {
-      return;
-    }
-    void loadDetailData(selectedTourId);
-  }, [selectedTourId]);
 
   const openCreateTourModal = () => {
     setSelectedTourToEdit(null);
@@ -133,6 +101,8 @@ export function ToursPage() {
       nombre: tour.nombre,
       estado: tour.estado,
       guiaId: tour.guiaId,
+      fechaInicio: toLocalDateTimeString(tour.fechaInicio),
+      fechaFin: toLocalDateTimeString(tour.fechaFin),
       cupoMaximo: tour.cupoMaximo,
       cupoMinimo: tour.cupoMinimo,
       precioVenta: tour.precioVenta,
@@ -151,21 +121,21 @@ export function ToursPage() {
     try {
       setErrorMessage(null);
       setSuccessMessage(null);
+      const { fechaInicio, fechaFin, ...rest } = values;
       const normalizedValues = {
-        ...values,
+        ...rest,
         cupoMaximo: Number(values.cupoMaximo),
         cupoMinimo: Number(values.cupoMinimo),
         precioVenta: Number(values.precioVenta),
+        fechaInicio: new Date(fechaInicio),
+        fechaFin: new Date(fechaFin),
       };
       if (selectedTourToEdit) {
         await toursService.update(selectedTourToEdit.id, normalizedValues);
         setSuccessMessage("Tour actualizado exitosamente.");
       } else {
-        const today = new Date();
         await toursService.create({
           ...normalizedValues,
-          fechaInicio: today,
-          fechaFin: today,
           creadoPor: profile?.id ?? "sistema",
           recordatorio1dEnviado: false,
           recordatorio7dEnviado: false,
@@ -173,7 +143,7 @@ export function ToursPage() {
         setSuccessMessage("Tour registrado exitosamente.");
       }
       closeTourModal();
-      await loadTours();
+      await reloadTours();
     } catch (error) {
       setErrorMessage(toServiceErrorMessage(error));
     }
@@ -189,7 +159,7 @@ export function ToursPage() {
       await toursService.update(tourToDelete.id, { estado: "cancelado" });
       setTourToDelete(null);
       setSuccessMessage("Tour eliminado del listado operativo.");
-      await loadTours();
+      await reloadTours();
     } catch (error) {
       setErrorMessage(toServiceErrorMessage(error));
     }
@@ -205,69 +175,31 @@ export function ToursPage() {
     selectedTour?.costosExtras ?? 0,
   );
 
-  const paymentRows = useMemo(
-    () =>
-      pagos.map((pago) => [
-        pago.inscripcionId,
-        `$${pago.monto.toFixed(2)}`,
-        pago.metodoPago,
-        new Date(pago.fecha).toLocaleDateString("es-SV"),
-      ]),
-    [pagos],
-  );
-
   const handleInscribir = async () => {
-    if (!selectedTourId || !selectedVagoId || inscripcionMontoTotal <= 0) {
-      return;
-    }
-    const selectedVago = vagos.find((item) => item.id === selectedVagoId);
-    if (!selectedVago) {
-      return;
-    }
-    try {
-      await inscripcionesService.createForTour(
-        selectedTourId,
-        selectedVago,
-        inscripcionMontoTotal,
-        profile?.id ?? "sistema",
-      );
-      await loadDetailData(selectedTourId);
-    } catch (error) {
-      setErrorMessage(toServiceErrorMessage(error));
-    }
+    await createInscripcion({
+      selectedVagoId,
+      montoTotal: inscripcionMontoTotal,
+      userId: profile?.id ?? "sistema",
+    });
   };
 
   const handleRegistrarPago = async () => {
-    if (!selectedTourId || !paymentInscripcionId || paymentAmount <= 0) {
-      return;
-    }
-    const inscripcion = inscripciones.find((item) => item.id === paymentInscripcionId);
-    if (!inscripcion) {
-      return;
-    }
-    await pagosService.create({
-      inscripcionId: inscripcion.id,
-      tourId: selectedTourId,
-      vagoId: inscripcion.vagoId,
+    const paymentCreated = await createPago({
+      inscripcionId: paymentInscripcionId,
       monto: paymentAmount,
-      metodoPago: "transferencia",
-      fecha: new Date(),
     });
-    setPaymentAmount(0);
-    await loadDetailData(selectedTourId);
+    if (paymentCreated) {
+      setPaymentAmount(0);
+    }
   };
 
   const handleRegistrarCompra = async () => {
-    if (!selectedTourId) {
-      return;
-    }
-    await comprasService.create(selectedTourId, {
+    await createCompra({
       categoria: "logistica",
       descripcion: "Compra registrada manualmente",
-      monto: 1,
+      monto: 10,
       fecha: new Date(),
     });
-    await loadDetailData(selectedTourId);
   };
 
   return (
@@ -276,162 +208,45 @@ export function ToursPage() {
       {errorMessage ? <p className="mb-4 rounded-md bg-danger/10 p-3 text-sm text-danger">{errorMessage}</p> : null}
       {successMessage ? <p className="mb-4 rounded-md bg-success/10 p-3 text-sm text-success">{successMessage}</p> : null}
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="flex items-center gap-2 font-heading text-xl">
-              <ClipboardList size={18} strokeWidth={1.8} />
-              Listado de tours
-            </h3>
-            <Button onClick={openCreateTourModal}>Agregar tour</Button>
-          </div>
-          <Table
-            emptyMessage="No hay tours registrados."
-            headers={["Tour", "Estado", "Cupo", "Precio", "Acciones"]}
-            rows={tours.map((tour) => ({
-              key: tour.id,
-              cells: [
-                <button
-                  key={`select-${tour.id}`}
-                  className="font-semibold text-[#0d6efd] underline-offset-2 hover:underline"
-                  onClick={() => setSelectedTourId(tour.id)}
-                  type="button"
-                >
-                  {tour.nombre}
-                </button>,
-                tour.estado,
-                `${tour.cupoMinimo}-${tour.cupoMaximo}`,
-                `$${tour.precioVenta.toFixed(2)}`,
-                <TableActions
-                  key={`actions-${tour.id}`}
-                  onDelete={() => setTourToDelete(tour)}
-                  onEdit={() => {
-                    setSelectedTourId(tour.id);
-                    openEditTourModal(tour);
-                  }}
-                />,
-              ],
-            }))}
-          />
-        </Card>
-        <Card>
-          <h3 className="mb-3 flex items-center gap-2 font-heading text-xl">
-            <ClipboardList size={18} strokeWidth={1.8} />
-            Resumen del tour seleccionado
-          </h3>
-          <p className="mb-3 text-sm text-neutral">
-            {selectedTour ? selectedTour.nombre : "Selecciona un tour desde el listado para ver sus indicadores."}
-          </p>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <Card>
-              <p className="inline-flex items-center gap-1 text-xs text-neutral">
-                <HandCoins size={14} strokeWidth={1.8} />
-                Ingresos recibidos
-              </p>
-              <p className="font-mono text-lg">${ingresosRecibidos.toFixed(2)}</p>
-            </Card>
-            <Card>
-              <p className="inline-flex items-center gap-1 text-xs text-neutral">
-                <ReceiptText size={14} strokeWidth={1.8} />
-                Costo total
-              </p>
-              <p className="font-mono text-lg">${financial.costoTotal.toFixed(2)}</p>
-            </Card>
-            <Card>
-              <p className="inline-flex items-center gap-1 text-xs text-neutral">
-                <CircleDollarSign size={14} strokeWidth={1.8} />
-                Margen
-              </p>
-              <p className={`font-mono text-lg ${financial.margenGanancia >= 0 ? "text-success" : "text-danger"}`}>
-                ${financial.margenGanancia.toFixed(2)}
-              </p>
-            </Card>
-          </div>
-        </Card>
+        <TourListPanel
+          tours={tours}
+          hasMore={hasMoreTours}
+          isLoadingMore={isLoadingMoreTours}
+          onAddTour={openCreateTourModal}
+          onSelectTour={setSelectedTourId}
+          onEditTour={openEditTourModal}
+          onDeleteTour={setTourToDelete}
+          onLoadMore={() => void loadMoreTours()}
+        />
+        <TourDetailPanel
+          selectedTour={selectedTour}
+          ingresosRecibidos={ingresosRecibidos}
+          costoTotal={financial.costoTotal}
+          margenGanancia={financial.margenGanancia}
+        />
       </div>
       {selectedTourId ? (
         <div className="mt-4 grid gap-4 xl:grid-cols-3">
-          <Card>
-            <h3 className="mb-2 flex items-center gap-2 font-heading text-lg">
-              <UserPlus size={17} strokeWidth={1.8} />
-              Inscribir Vago
-            </h3>
-            <label className="mb-2 flex flex-col gap-1 text-sm">
-              <span>Vago</span>
-              <select
-                className="rounded-md border border-border px-3 py-2"
-                value={selectedVagoId}
-                onChange={(event) => setSelectedVagoId(event.target.value)}
-              >
-                <option value="">Selecciona</option>
-                {vagos.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.nombre} {item.apellido}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Input
-              label="Monto acordado"
-              type="number"
-              value={inscripcionMontoTotal}
-              onChange={(event) => setInscripcionMontoTotal(Number(event.target.value))}
-            />
-            <Button className="mt-2 w-full" onClick={() => void handleInscribir()}>
-              Inscribir
-            </Button>
-          </Card>
-          <Card>
-            <h3 className="mb-2 font-heading text-lg">Registrar pago</h3>
-            <label className="mb-2 flex flex-col gap-1 text-sm">
-              <span>Inscripción</span>
-              <select
-                className="rounded-md border border-border px-3 py-2"
-                value={paymentInscripcionId}
-                onChange={(event) => setPaymentInscripcionId(event.target.value)}
-              >
-                <option value="">Selecciona</option>
-                {inscripciones.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.vagoNombre}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Input
-              label="Monto"
-              type="number"
-              value={paymentAmount}
-              onChange={(event) => setPaymentAmount(Number(event.target.value))}
-            />
-            <Button className="mt-2 w-full" onClick={() => void handleRegistrarPago()}>
-              Registrar pago
-            </Button>
-          </Card>
-          <Card>
-            <h3 className="mb-2 font-heading text-lg">Compras</h3>
-            <Button className="w-full" onClick={() => void handleRegistrarCompra()}>
-              Registrar compra de prueba
-            </Button>
-            <p className="mt-2 text-sm text-neutral">Compras registradas: {compras.length}</p>
-          </Card>
-          <div className="xl:col-span-3">
-            <Card>
-              <h3 className="mb-3 font-heading text-lg">Estado de pagos</h3>
-              <Table
-                headers={["Vago", "Total", "Pagado", "Estado"]}
-                rows={inscripciones.map((item) => [
-                  item.vagoNombre,
-                  `$${item.montoTotal.toFixed(2)}`,
-                  `$${item.montoPagado.toFixed(2)}`,
-                  item.estadoPago,
-                ])}
-              />
-              <div className="mt-4">
-                <h4 className="mb-2 font-heading">Historial de pagos</h4>
-                <Table headers={["Inscripción", "Monto", "Método", "Fecha"]} rows={paymentRows} />
-              </div>
-            </Card>
-          </div>
+          <InscripcionesPanel
+            vagos={vagos}
+            selectedVagoId={selectedVagoId}
+            inscripcionMontoTotal={inscripcionMontoTotal}
+            isSubmitting={isSubmittingInscripcion}
+            onSelectVago={setSelectedVagoId}
+            onAmountChange={setInscripcionMontoTotal}
+            onSubmit={() => void handleInscribir()}
+          />
+          <PagosPanel
+            inscripciones={inscripciones}
+            pagos={pagos}
+            paymentInscripcionId={paymentInscripcionId}
+            paymentAmount={paymentAmount}
+            isSubmitting={isSubmittingPago}
+            onSelectInscripcion={setPaymentInscripcionId}
+            onAmountChange={setPaymentAmount}
+            onSubmit={() => void handleRegistrarPago()}
+          />
+          <ComprasPanel comprasCount={compras.length} isSubmitting={isSubmittingCompra} onSubmit={() => void handleRegistrarCompra()} />
         </div>
       ) : null}
       <Modal
@@ -483,6 +298,18 @@ export function ToursPage() {
               </select>
             </label>
             <Input label="Punto de encuentro" {...form.register("puntoEncuentro")} error={form.formState.errors.puntoEncuentro?.message} />
+            <Input
+              label="Fecha y hora de inicio"
+              type="datetime-local"
+              {...form.register("fechaInicio")}
+              error={form.formState.errors.fechaInicio?.message}
+            />
+            <Input
+              label="Fecha y hora de fin"
+              type="datetime-local"
+              {...form.register("fechaFin")}
+              error={form.formState.errors.fechaFin?.message}
+            />
             <Input
               label="Cupo máximo"
               type="number"
