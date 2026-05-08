@@ -5,7 +5,6 @@ import { toursService } from "./toursService";
 import { pagosService } from "./pagosService";
 import { guiasService } from "./guiasService";
 import { guiaDocumentosService } from "./guiaDocumentosService";
-import { transporteService } from "./transporteService";
 import { inscripcionesService } from "./inscripcionesService";
 import type { UserRole } from "@/types/usuario.types";
 
@@ -40,21 +39,6 @@ export interface DashboardMetrics {
   hasRestrictedMetrics: boolean;
   upcomingTours: DashboardUpcomingTourRow[];
   alerts: DashboardAlert[];
-}
-
-function toDate(value: unknown): Date | null {
-  if (value == null) {
-    return null;
-  }
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value;
-  }
-  if (typeof (value as { toDate?: () => Date }).toDate === "function") {
-    const parsed = (value as { toDate: () => Date }).toDate();
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-  const parsed = new Date(value as string | number);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 function addDays(base: Date, days: number): Date {
@@ -150,39 +134,6 @@ async function collectDocumentAlerts(guiaIds: string[]): Promise<DashboardAlert[
   return alerts;
 }
 
-async function collectTransportAlerts(): Promise<DashboardAlert[]> {
-  const alerts: DashboardAlert[] = [];
-  const unidades = await transporteService.list();
-  const now = new Date();
-  const limitDate = addDays(now, 30);
-  for (const unidad of unidades) {
-    if (!unidad.activo) {
-      continue;
-    }
-    const vence = toDate(unidad.seguroVence as unknown);
-    if (!vence) {
-      continue;
-    }
-    const id = `transporte-seguro-${unidad.id}`;
-    if (vence < now) {
-      alerts.push({
-        id,
-        nivel: "critico",
-        titulo: "Seguro de transporte vencido",
-        detalle: `${unidad.empresa} ${unidad.placa}: póliza vencida el ${vence.toLocaleDateString("es-SV")}.`,
-      });
-    } else if (vence <= limitDate) {
-      alerts.push({
-        id,
-        nivel: "preventivo",
-        titulo: "Seguro de transporte por vencer",
-        detalle: `${unidad.empresa} ${unidad.placa}: vence el ${vence.toLocaleDateString("es-SV")}.`,
-      });
-    }
-  }
-  return alerts;
-}
-
 export async function getDashboardMetrics(auth: DashboardAuthProfile): Promise<DashboardMetrics> {
   const now = new Date();
   const plus30Days = addDays(now, 30);
@@ -196,7 +147,7 @@ export async function getDashboardMetrics(auth: DashboardAuthProfile): Promise<D
 
   const tourIds = tours.map((t) => t.id);
 
-  const [ingresosMes, alertsDocs, alertsTransport] = await Promise.all([
+  const [ingresosMes, alertsDocs] = await Promise.all([
     computeMonthlyIncome(auth, monthStart, monthEnd, tourIds),
     (async (): Promise<DashboardAlert[]> => {
       if (auth?.rol === "guia" && auth.guiaId) {
@@ -208,7 +159,6 @@ export async function getDashboardMetrics(auth: DashboardAuthProfile): Promise<D
       }
       return [];
     })(),
-    auth?.rol === "admin" || auth?.rol === "operador" || auth?.rol === "guia" ? collectTransportAlerts() : [],
   ]);
 
   const upcomingTours = tours
@@ -234,7 +184,7 @@ export async function getDashboardMetrics(auth: DashboardAuthProfile): Promise<D
     return date >= startYear && tour.estado === "realizado";
   }).length;
 
-  const alerts = [...alertsDocs, ...alertsTransport].sort((a, b) => {
+  const alerts = [...alertsDocs].sort((a, b) => {
     if (a.nivel === b.nivel) {
       return 0;
     }

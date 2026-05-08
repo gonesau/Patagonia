@@ -27,24 +27,9 @@ const defaultValues: TransporteFormValues = {
   anio: undefined,
   placa: "",
   capacidad: 0,
-  tipoCombustible: "",
   costoPorTour: 0,
-  seguroPoliza: "",
-  seguroVence: "",
   activo: true,
 };
-
-function toDateInputValue(value: Date | undefined): string {
-  if (!value) {
-    return "";
-  }
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) {
-    return "";
-  }
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
 
 export function TransportePage() {
   const [unidades, setUnidades] = useState<Transporte[]>([]);
@@ -98,10 +83,7 @@ export function TransportePage() {
       anio: unidad.anio,
       placa: unidad.placa,
       capacidad: unidad.capacidad,
-      tipoCombustible: unidad.tipoCombustible ?? "",
       costoPorTour: unidad.costoPorTour,
-      seguroPoliza: unidad.seguroPoliza ?? "",
-      seguroVence: toDateInputValue(unidad.seguroVence),
       activo: unidad.activo,
     });
     setIsFormModalOpen(true);
@@ -117,15 +99,10 @@ export function TransportePage() {
     try {
       setErrorMessage(null);
       setSuccessMessage(null);
-      const seguroVence =
-        values.seguroVence && values.seguroVence.trim().length > 0 ? new Date(values.seguroVence) : undefined;
       const payload = {
         ...values,
         telefonoMotorista: values.telefonoMotorista?.trim() || undefined,
-        tipoCombustible: values.tipoCombustible?.trim() || undefined,
-        seguroPoliza: values.seguroPoliza?.trim() || undefined,
         anio: values.anio,
-        seguroVence,
       };
       if (selectedUnidad) {
         await transporteService.update(selectedUnidad.id, payload);
@@ -229,15 +206,12 @@ export function TransportePage() {
               {...form.register("capacidad", { valueAsNumber: true })}
               error={form.formState.errors.capacidad?.message}
             />
-            <Input label="Combustible" {...form.register("tipoCombustible")} />
             <Input
               label="Costo por tour"
               type="number"
               {...form.register("costoPorTour", { valueAsNumber: true })}
               error={form.formState.errors.costoPorTour?.message}
             />
-            <Input label="Póliza seguro" {...form.register("seguroPoliza")} />
-            <Input label="Vencimiento seguro" type="date" {...form.register("seguroVence")} />
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" {...form.register("activo")} />

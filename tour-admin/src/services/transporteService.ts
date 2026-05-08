@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteField,
   getDocs,
   limit,
   orderBy,
@@ -39,6 +40,11 @@ export const transporteService = {
     if (data.placa) {
       await ensureUniquePlaca(data.placa, transporteId);
     }
-    await updateDoc(doc(db, "transporte", transporteId), data);
+    await updateDoc(doc(db, "transporte", transporteId), {
+      ...data,
+      tipoCombustible: deleteField(),
+      seguroPoliza: deleteField(),
+      seguroVence: deleteField(),
+    });
   },
 };

@@ -10,6 +10,7 @@ import { PlantillasPage } from "@/pages/plantillas/PlantillasPage";
 import { ToursPage } from "@/pages/tours/ToursPage";
 import { CalendarioPage } from "@/pages/calendario/CalendarioPage";
 import { ReportesPage } from "@/pages/reportes/ReportesPage";
+import { ComprasPage } from "@/pages/compras/ComprasPage";
 import { ConfiguracionPage } from "@/pages/configuracion/ConfiguracionPage";
 import { AdministracionPage } from "@/pages/administracion/AdministracionPage";
 import { AccessDeniedPage } from "@/pages/auth/AccessDeniedPage";
@@ -51,12 +52,13 @@ const router = createBrowserRouter([
           { path: "/tours", element: <ToursPage /> },
           { path: "/calendario", element: <CalendarioPage /> },
           {
-            element: <ProtectedRoute roles={["admin"]} />,
+            element: <ProtectedRoute roles={["admin", "operador"]} />,
             children: [
               { path: "/vagos", element: <VagosPage /> },
               { path: "/guias", element: <GuiasPage /> },
               { path: "/transporte", element: <TransportePage /> },
               { path: "/plantillas", element: <PlantillasPage /> },
+              { path: "/compras", element: <ComprasPage /> },
               { path: "/reportes", element: <ReportesPage /> },
               { path: "/administracion", element: <AdministracionPage /> },
               { path: "/configuracion", element: <ConfiguracionPage /> },

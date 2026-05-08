@@ -72,10 +72,7 @@ export const transporteFormSchema = z.object({
   }, z.number().min(1950).max(2100).optional()),
   placa: z.string().min(5, "Placa requerida"),
   capacidad: z.number().min(1, "Capacidad inválida"),
-  tipoCombustible: z.string().optional(),
   costoPorTour: z.number().min(0, "Costo inválido"),
-  seguroPoliza: z.string().optional(),
-  seguroVence: z.string().optional(),
   activo: z.boolean(),
 });
 export type TransporteFormValues = z.infer<typeof transporteFormSchema>;

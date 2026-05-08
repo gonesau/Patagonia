@@ -8,7 +8,8 @@ import type { Compra } from "@/types/compra.types";
 import type { CategoriaCompra } from "@/types/categoriaCompra.types";
 
 interface ComprasPanelProps {
-  tourId: string;
+  /** Tour al que se asocia la compra cuando el usuario marca "asociar al tour". Vacío deshabilita esa opción. */
+  associationTourId: string;
   comprasTour: Compra[];
   comprasGenerales: Compra[];
   categorias: CategoriaCompra[];
@@ -40,7 +41,7 @@ function formatDate(value: Date): string {
 }
 
 export function ComprasPanel({
-  tourId,
+  associationTourId,
   comprasTour,
   comprasGenerales,
   categorias,
@@ -75,7 +76,7 @@ export function ComprasPanel({
                 descripcion: item.descripcion,
                 categoriaId: item.categoriaId,
                 monto: item.monto,
-                asociarAlTour: item.tourId === tourId,
+                asociarAlTour: Boolean(item.tourId),
               });
               setFormError(null);
             }}
@@ -117,6 +118,11 @@ export function ComprasPanel({
       return;
     }
 
+    if (formState.asociarAlTour && !associationTourId) {
+      setFormError("Selecciona un tour arriba para asociar la compra.");
+      return;
+    }
+
     const payload = {
       nombre: formState.nombre.trim(),
       descripcion: formState.descripcion.trim(),
@@ -124,7 +130,7 @@ export function ComprasPanel({
       categoriaNombreSnapshot: selectedCategoria.nombre,
       monto: formState.monto,
       fecha: new Date(),
-      tourId: formState.asociarAlTour ? tourId : null,
+      tourId: formState.asociarAlTour ? associationTourId : null,
     } satisfies Omit<Compra, "id" | "creadoEn" | "actualizadoEn">;
 
     if (editingCompraId) {
@@ -189,11 +195,14 @@ export function ComprasPanel({
             <input
               type="checkbox"
               checked={formState.asociarAlTour}
-              disabled={isSubmitting || !hasActiveCategories}
+              disabled={isSubmitting || !hasActiveCategories || !associationTourId}
               onChange={(event) => setFormState((current) => ({ ...current, asociarAlTour: event.target.checked }))}
             />
             Asociar esta compra al tour seleccionado
           </label>
+          {!associationTourId ? (
+            <p className="text-xs text-neutral">Elige un tour en el selector superior para poder asociar compras a una ocurrencia.</p>
+          ) : null}
           {formError ? <p className="text-sm text-danger">{formError}</p> : null}
           <div className="flex gap-2">
             <Button className="w-full" onClick={() => void handleSubmit()} disabled={isSubmitting || !hasActiveCategories}>

@@ -6,8 +6,6 @@ import { guiasService } from "@/services/guiasService";
 import { vagosService } from "@/services/vagosService";
 import { inscripcionesService } from "@/services/inscripcionesService";
 import { pagosService } from "@/services/pagosService";
-import { comprasService } from "@/services/comprasService";
-import { categoriasCompraService } from "@/services/categoriasCompraService";
 import { estadosTourService } from "@/services/estadosTourService";
 import { metodosPagoService } from "@/services/metodosPagoService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
@@ -16,8 +14,6 @@ import type { Guia } from "@/types/guia.types";
 import type { Vago } from "@/types/vago.types";
 import type { Inscripcion } from "@/types/inscripcion.types";
 import type { Pago } from "@/types/pago.types";
-import type { Compra } from "@/types/compra.types";
-import type { CategoriaCompra } from "@/types/categoriaCompra.types";
 import type { EstadoTour } from "@/types/estadoTour.types";
 import type { MetodoPagoCatalogo } from "@/types/metodoPago.types";
 import type { UsuarioSistema } from "@/types/usuario.types";
@@ -31,9 +27,6 @@ interface UseToursPageStateResult {
   vagos: Vago[];
   inscripciones: Inscripcion[];
   pagos: Pago[];
-  comprasTour: Compra[];
-  comprasGenerales: Compra[];
-  categoriasCompra: CategoriaCompra[];
   estadosTourCatalog: EstadoTour[];
   metodosPagoCatalog: MetodoPagoCatalogo[];
   selectedTourId: string;
@@ -43,7 +36,6 @@ interface UseToursPageStateResult {
   isLoadingMoreTours: boolean;
   isSubmittingInscripcion: boolean;
   isSubmittingPago: boolean;
-  isSubmittingCompra: boolean;
   setSelectedTourId: (tourId: string) => void;
   setPaymentInscripcionId: (inscripcionId: string) => void;
   setErrorMessage: (message: string | null) => void;
@@ -59,9 +51,6 @@ interface UseToursPageStateResult {
     comprobanteUrl?: string;
     notas?: string;
   }) => Promise<boolean>;
-  createCompra: (payload: Omit<Compra, "id" | "creadoEn" | "actualizadoEn">) => Promise<void>;
-  updateCompra: (compraId: string, payload: Partial<Omit<Compra, "id" | "creadoEn" | "actualizadoEn">>) => Promise<void>;
-  deleteCompra: (compraId: string) => Promise<void>;
 }
 
 export function useToursPageState(profile: UsuarioSistema | null): UseToursPageStateResult {
@@ -71,9 +60,6 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
   const [vagos, setVagos] = useState<Vago[]>([]);
   const [inscripciones, setInscripciones] = useState<Inscripcion[]>([]);
   const [pagos, setPagos] = useState<Pago[]>([]);
-  const [comprasTour, setComprasTour] = useState<Compra[]>([]);
-  const [comprasGenerales, setComprasGenerales] = useState<Compra[]>([]);
-  const [categoriasCompra, setCategoriasCompra] = useState<CategoriaCompra[]>([]);
   const [estadosTourCatalog, setEstadosTourCatalog] = useState<EstadoTour[]>([]);
   const [metodosPagoCatalog, setMetodosPagoCatalog] = useState<MetodoPagoCatalogo[]>([]);
   const [selectedTourId, setSelectedTourId] = useState<string>("");
@@ -83,7 +69,6 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
   const [isLoadingMoreTours, setIsLoadingMoreTours] = useState<boolean>(false);
   const [isSubmittingInscripcion, setIsSubmittingInscripcion] = useState<boolean>(false);
   const [isSubmittingPago, setIsSubmittingPago] = useState<boolean>(false);
-  const [isSubmittingCompra, setIsSubmittingCompra] = useState<boolean>(false);
   const [toursCursor, setToursCursor] = useState<QueryDocumentSnapshot<DocumentData> | undefined>(undefined);
 
   const loadCatalogs = useCallback(async () => {
@@ -152,18 +137,12 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
   };
 
   const loadDetailData = useCallback(async (tourId: string) => {
-    const [inscripcionesData, pagosData, comprasTourData, comprasGeneralesData, categoriasData] = await Promise.all([
+    const [inscripcionesData, pagosData] = await Promise.all([
       inscripcionesService.listByTour(tourId),
       pagosService.listByTour(tourId),
-      comprasService.listByTour(tourId),
-      comprasService.listGeneral(),
-      categoriasCompraService.listActive(),
     ]);
     setInscripciones(inscripcionesData);
     setPagos(pagosData);
-    setComprasTour(comprasTourData);
-    setComprasGenerales(comprasGeneralesData);
-    setCategoriasCompra(categoriasData);
     if (!paymentInscripcionId && inscripcionesData[0]) {
       setPaymentInscripcionId(inscripcionesData[0].id);
     }
@@ -265,59 +244,6 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
     }
   };
 
-  const createCompra = async (payload: Omit<Compra, "id" | "creadoEn" | "actualizadoEn">) => {
-    if (isSubmittingCompra) {
-      return;
-    }
-    try {
-      setIsSubmittingCompra(true);
-      setErrorMessage(null);
-      await comprasService.create(payload);
-      if (selectedTourId) {
-        await loadDetailData(selectedTourId);
-      }
-    } catch (error) {
-      setErrorMessage(toServiceErrorMessage(error));
-    } finally {
-      setIsSubmittingCompra(false);
-    }
-  };
-
-  const updateCompra = async (
-    compraId: string,
-    payload: Partial<Omit<Compra, "id" | "creadoEn" | "actualizadoEn">>,
-  ) => {
-    if (!selectedTourId || isSubmittingCompra) {
-      return;
-    }
-    try {
-      setIsSubmittingCompra(true);
-      setErrorMessage(null);
-      await comprasService.update(compraId, payload);
-      await loadDetailData(selectedTourId);
-    } catch (error) {
-      setErrorMessage(toServiceErrorMessage(error));
-    } finally {
-      setIsSubmittingCompra(false);
-    }
-  };
-
-  const deleteCompra = async (compraId: string) => {
-    if (!selectedTourId || isSubmittingCompra) {
-      return;
-    }
-    try {
-      setIsSubmittingCompra(true);
-      setErrorMessage(null);
-      await comprasService.remove(compraId);
-      await loadDetailData(selectedTourId);
-    } catch (error) {
-      setErrorMessage(toServiceErrorMessage(error));
-    } finally {
-      setIsSubmittingCompra(false);
-    }
-  };
-
   return {
     tours,
     plantillas,
@@ -325,9 +251,6 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
     vagos,
     inscripciones,
     pagos,
-    comprasTour,
-    comprasGenerales,
-    categoriasCompra,
     estadosTourCatalog,
     metodosPagoCatalog,
     selectedTourId,
@@ -337,7 +260,6 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
     isLoadingMoreTours,
     isSubmittingInscripcion,
     isSubmittingPago,
-    isSubmittingCompra,
     setSelectedTourId,
     setPaymentInscripcionId,
     setErrorMessage,
@@ -345,8 +267,5 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
     loadMoreTours,
     createInscripcion,
     createPago,
-    createCompra,
-    updateCompra,
-    deleteCompra,
   };
 }

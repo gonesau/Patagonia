@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -6,12 +7,17 @@ import { Input } from "@/components/ui/Input";
 import { toursService } from "@/services/toursService";
 import { pagosService } from "@/services/pagosService";
 import { comprasService } from "@/services/comprasService";
+import { inscripcionesService } from "@/services/inscripcionesService";
 import { calculateTourMargin } from "@/utils/financiero.utils";
 import { generateVagosListPdf } from "@/utils/pdf.utils";
 import { FileDown, FileSpreadsheet } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { registerAuditLog } from "@/services/auditoriaService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
+import { TourDetailPanel } from "@/pages/tours/components/TourDetailPanel";
+import type { TourOcurrencia } from "@/types/tour.types";
+import type { Inscripcion } from "@/types/inscripcion.types";
+import type { Compra } from "@/types/compra.types";
 
 function startOfCurrentMonth(): string {
   const d = new Date();
@@ -28,6 +34,15 @@ function endOfCurrentMonth(): string {
 
 export function ReportesPage() {
   const { profile } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [toursCatalog, setToursCatalog] = useState<TourOcurrencia[]>([]);
+  const [finanzasTourId, setFinanzasTourId] = useState<string>("");
+  const [tourDetalle, setTourDetalle] = useState<TourOcurrencia | null>(null);
+  const [inscripcionesFinanzas, setInscripcionesFinanzas] = useState<Inscripcion[]>([]);
+  const [comprasFinanzas, setComprasFinanzas] = useState<Compra[]>([]);
+  const [finanzasError, setFinanzasError] = useState<string | null>(null);
+  const [finanzasLoading, setFinanzasLoading] = useState<boolean>(false);
+
   const [fechaDesde, setFechaDesde] = useState<string>(() => startOfCurrentMonth());
   const [fechaHasta, setFechaHasta] = useState<string>(() => endOfCurrentMonth());
   const [soloRealizados, setSoloRealizados] = useState<boolean>(true);
@@ -35,6 +50,87 @@ export function ReportesPage() {
   const [comprasGeneralesTotal, setComprasGeneralesTotal] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadCatalog = async () => {
+      try {
+        const list = await toursService.list();
+        setToursCatalog(list.sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime()));
+      } catch (error) {
+        setFinanzasError(toServiceErrorMessage(error));
+      }
+    };
+    void loadCatalog();
+  }, []);
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("tour");
+    if (!fromUrl || toursCatalog.length === 0) {
+      return;
+    }
+    if (!toursCatalog.some((t) => t.id === fromUrl)) {
+      return;
+    }
+    setFinanzasTourId(fromUrl);
+    const next = new URLSearchParams(searchParams);
+    next.delete("tour");
+    setSearchParams(next, { replace: true });
+  }, [toursCatalog, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!finanzasTourId) {
+      setTourDetalle(null);
+      setInscripcionesFinanzas([]);
+      setComprasFinanzas([]);
+      return;
+    }
+    const load = async () => {
+      setFinanzasLoading(true);
+      setFinanzasError(null);
+      try {
+        const [tour, inscripcionesData, comprasData] = await Promise.all([
+          toursService.getById(finanzasTourId),
+          inscripcionesService.listByTour(finanzasTourId),
+          comprasService.listByTour(finanzasTourId),
+        ]);
+        setTourDetalle(tour);
+        setInscripcionesFinanzas(inscripcionesData);
+        setComprasFinanzas(comprasData);
+      } catch (error) {
+        setFinanzasError(toServiceErrorMessage(error));
+      } finally {
+        setFinanzasLoading(false);
+      }
+    };
+    void load();
+  }, [finanzasTourId]);
+
+  const finanzasMetrics = useMemo(() => {
+    if (!tourDetalle) {
+      return null;
+    }
+    const inscripcionesActivas = inscripcionesFinanzas.filter((i) => i.estado !== "cancelado").length;
+    const ingresosRecibidos = inscripcionesFinanzas.reduce((total, item) => total + item.montoPagado, 0);
+    const ingresosEsperados = tourDetalle.precioVenta * inscripcionesActivas;
+    const costoCompras = comprasFinanzas.reduce((total, item) => total + item.monto, 0);
+    const financial = calculateTourMargin(
+      ingresosRecibidos,
+      tourDetalle.costoTransporte ?? 0,
+      costoCompras,
+      tourDetalle.costosExtras ?? 0,
+      ingresosEsperados,
+    );
+    return {
+      inscripcionesActivas,
+      cupoMaximo: tourDetalle.cupoMaximo,
+      ingresosEsperados,
+      ingresosRecibidos,
+      costoCompras,
+      costoTransporte: tourDetalle.costoTransporte ?? 0,
+      costosExtras: tourDetalle.costosExtras ?? 0,
+      ...financial,
+    };
+  }, [tourDetalle, inscripcionesFinanzas, comprasFinanzas]);
 
   const totales = useMemo(() => {
     let ing = 0;
@@ -130,8 +226,56 @@ export function ReportesPage() {
 
   return (
     <>
-      <PageHeader title="Reportes Financieros" description="Consolidado de ingresos, costos y margen por ocurrencia." />
+      <PageHeader
+        title="Reportes Financieros"
+        description="Detalle y finanzas por ocurrencia, y consolidado por rango de fechas."
+      />
+
+      <Card className="mb-6">
+        <h2 className="mb-3 font-heading text-lg text-textDark">Detalle y finanzas por tour</h2>
+        <p className="mb-3 text-sm text-neutral">
+          Seleccione una ocurrencia para ver cupos, ingresos esperados y recibidos, costos y margen.
+        </p>
+        <label className="mb-4 flex max-w-xl flex-col gap-1 text-sm">
+          <span>Tour</span>
+          <select
+            className="rounded-md border border-border px-3 py-2"
+            value={finanzasTourId}
+            onChange={(e) => setFinanzasTourId(e.target.value)}
+          >
+            <option value="">Seleccione un tour</option>
+            {toursCatalog.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.nombre} — {new Date(t.fechaInicio).toLocaleDateString("es-SV")} ({t.estado})
+              </option>
+            ))}
+          </select>
+        </label>
+        {finanzasError ? <p className="mb-3 text-sm text-danger">{finanzasError}</p> : null}
+        {finanzasLoading ? <p className="text-sm text-neutral">Cargando datos del tour…</p> : null}
+        {!finanzasLoading && finanzasTourId && finanzasMetrics && tourDetalle ? (
+          <TourDetailPanel
+            costoCompras={finanzasMetrics.costoCompras}
+            costoTotal={finanzasMetrics.costoTotal}
+            costosExtras={finanzasMetrics.costosExtras}
+            costoTransporte={finanzasMetrics.costoTransporte}
+            cupoMaximo={finanzasMetrics.cupoMaximo}
+            ingresosEsperados={finanzasMetrics.ingresosEsperados}
+            ingresosRecibidos={finanzasMetrics.ingresosRecibidos}
+            inscripcionesActivas={finanzasMetrics.inscripcionesActivas}
+            margenGanancia={finanzasMetrics.margenGanancia}
+            margenPorcentajeSobreIngresos={finanzasMetrics.margenPorcentajeSobreIngresos}
+            selectedTour={tourDetalle}
+          />
+        ) : null}
+        {!finanzasLoading && !finanzasTourId ? (
+          <p className="text-sm text-neutral">Elija un tour en la lista para cargar los indicadores.</p>
+        ) : null}
+      </Card>
+
       <Card>
+        <h2 className="mb-3 font-heading text-lg text-textDark">Reporte consolidado</h2>
+        <p className="mb-4 text-sm text-neutral">Ingresos, costos y margen por ocurrencia en un rango de fechas.</p>
         <div className="mb-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           <Input label="Desde" type="date" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} />
           <Input label="Hasta" type="date" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} />

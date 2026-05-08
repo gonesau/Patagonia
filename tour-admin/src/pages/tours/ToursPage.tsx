@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FileDown } from "lucide-react";
@@ -11,18 +11,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { toursService } from "@/services/toursService";
 import { transporteService } from "@/services/transporteService";
 import { uploadAdminFile } from "@/services/storageUploadService";
-import { calculateTourMargin } from "@/utils/financiero.utils";
+import { comprasService } from "@/services/comprasService";
 import { tourFormSchema, type TourFormValues } from "@/utils/validaciones";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
 import { findGuiaIdsWithTourConflict, plantillaSnapshotForTour } from "@/utils/tourScheduling.utils";
 import type { TourOcurrencia } from "@/types/tour.types";
 import type { Transporte } from "@/types/transporte.types";
 import { TourListPanel } from "./components/TourListPanel";
-import { TourDetailPanel } from "./components/TourDetailPanel";
 import { TourOperacionesPanel } from "./components/TourOperacionesPanel";
 import { InscripcionesPanel } from "./components/InscripcionesPanel";
 import { PagosPanel } from "./components/PagosPanel";
-import { ComprasPanel } from "./components/ComprasPanel";
 import { useToursPageState } from "./hooks/useToursPageState";
 import { buildTourVagosReport } from "@/utils/tourReportBuilder";
 import { generateTourVagosPdf } from "@/utils/pdf.utils";
@@ -74,6 +72,7 @@ function addDays(base: Date, days: number): Date {
 export function ToursPage() {
   const { profile } = useAuth();
   const isAdmin = profile?.rol === "admin";
+  const canVerFinanzasEnReportes = profile?.rol === "admin" || profile?.rol === "operador";
   const [searchParams, setSearchParams] = useSearchParams();
   const {
     tours,
@@ -82,9 +81,6 @@ export function ToursPage() {
     vagos,
     inscripciones,
     pagos,
-    comprasTour,
-    comprasGenerales,
-    categoriasCompra,
     estadosTourCatalog,
     metodosPagoCatalog,
     selectedTourId,
@@ -94,7 +90,6 @@ export function ToursPage() {
     isLoadingMoreTours,
     isSubmittingInscripcion,
     isSubmittingPago,
-    isSubmittingCompra,
     setSelectedTourId,
     setPaymentInscripcionId,
     setErrorMessage,
@@ -102,9 +97,6 @@ export function ToursPage() {
     loadMoreTours,
     createInscripcion,
     createPago,
-    createCompra,
-    updateCompra,
-    deleteCompra,
   } = useToursPageState(profile);
 
   useEffect(() => {
@@ -372,16 +364,6 @@ export function ToursPage() {
   const selectedTour = tours.find((tour) => tour.id === selectedTourId);
   const inscripcionesActivas = inscripciones.filter((i) => i.estado !== "cancelado").length;
   const cuposDisponibles = selectedTour ? Math.max(0, selectedTour.cupoMaximo - inscripcionesActivas) : 0;
-  const ingresosRecibidos = inscripciones.reduce((total, item) => total + item.montoPagado, 0);
-  const ingresosEsperados = selectedTour ? selectedTour.precioVenta * inscripcionesActivas : 0;
-  const costoCompras = comprasTour.reduce((total, item) => total + item.monto, 0);
-  const financial = calculateTourMargin(
-    ingresosRecibidos,
-    selectedTour?.costoTransporte ?? 0,
-    costoCompras,
-    selectedTour?.costosExtras ?? 0,
-    ingresosEsperados,
-  );
 
   const handleInscribir = async () => {
     await createInscripcion({
@@ -422,10 +404,11 @@ export function ToursPage() {
       setErrorMessage(null);
       const config = await configuracionService.get();
       const reportData = await buildTourVagosReport(selectedTourId);
+      const comprasTourPdf = await comprasService.listByTour(selectedTourId);
       const pdf = await generateTourVagosPdf(reportData, {
         logoUrl: config.logoUrl,
         includePurchaseSummary: true,
-        comprasTour,
+        comprasTour: comprasTourPdf,
       });
       const safeName = reportData.tourName.replace(/[^\w\s-]/g, "").replace(/\s+/g, "_");
       const fecha = reportData.scheduledDateTime.replace(/[^\d]/g, "").slice(0, 8);
@@ -457,36 +440,31 @@ export function ToursPage() {
 
   return (
     <>
-      <PageHeader title="Tours" description="Gestión integral de tours, inscripciones, pagos y margen." />
+      <PageHeader
+        title="Tours"
+        description="Listado, operaciones, inscripciones y pagos. Compras y detalle financiero están en los módulos Compras y Reportes."
+      />
       {errorMessage ? <p className="mb-4 rounded-md bg-danger/10 p-3 text-sm text-danger">{errorMessage}</p> : null}
       {successMessage ? <p className="mb-4 rounded-md bg-success/10 p-3 text-sm text-success">{successMessage}</p> : null}
-      <div className="grid gap-4 xl:grid-cols-2">
-        <TourListPanel
-          tours={tours}
-          hasMore={hasMoreTours}
-          isAdmin={isAdmin}
-          isLoadingMore={isLoadingMoreTours}
-          onAddTour={openCreateTourModal}
-          onDuplicateTour={openDuplicateFromTour}
-          onSelectTour={setSelectedTourId}
-          onEditTour={openEditTourModal}
-          onDeleteTour={setTourToDelete}
-          onLoadMore={() => void loadMoreTours()}
-        />
-        <TourDetailPanel
-          selectedTour={selectedTour}
-          inscripcionesActivas={inscripcionesActivas}
-          cupoMaximo={selectedTour?.cupoMaximo ?? 0}
-          ingresosEsperados={ingresosEsperados}
-          ingresosRecibidos={ingresosRecibidos}
-          costoTransporte={selectedTour?.costoTransporte ?? 0}
-          costoCompras={costoCompras}
-          costosExtras={selectedTour?.costosExtras ?? 0}
-          costoTotal={financial.costoTotal}
-          margenGanancia={financial.margenGanancia}
-          margenPorcentajeSobreIngresos={financial.margenPorcentajeSobreIngresos}
-        />
-      </div>
+      <TourListPanel
+        tours={tours}
+        hasMore={hasMoreTours}
+        isAdmin={isAdmin}
+        isLoadingMore={isLoadingMoreTours}
+        onAddTour={openCreateTourModal}
+        onDuplicateTour={openDuplicateFromTour}
+        onSelectTour={setSelectedTourId}
+        onEditTour={openEditTourModal}
+        onDeleteTour={setTourToDelete}
+        onLoadMore={() => void loadMoreTours()}
+      />
+      {selectedTourId && canVerFinanzasEnReportes ? (
+        <p className="mt-3 text-sm text-textDark">
+          <Link className="text-primary underline hover:no-underline" to={`/reportes?tour=${selectedTourId}`}>
+            Ver detalle y finanzas de esta ocurrencia en Reportes
+          </Link>
+        </p>
+      ) : null}
       {selectedTourId && isAdmin ? (
         <div className="mt-4">
           <TourOperacionesPanel
@@ -513,7 +491,7 @@ export function ToursPage() {
         </div>
       ) : null}
       {selectedTourId ? (
-        <div className="mt-4 grid gap-4 xl:grid-cols-3">
+        <div className="mt-4 grid gap-4 xl:grid-cols-2">
           <InscripcionesPanel
             cuposDisponibles={cuposDisponibles}
             inscripcionMontoTotal={inscripcionMontoTotal}
@@ -538,17 +516,6 @@ export function ToursPage() {
             onSelectInscripcion={setPaymentInscripcionId}
             onSelectMethod={setPaymentMethodId}
             onSubmit={(payload) => void handleRegistrarPago(payload)}
-          />
-          <ComprasPanel
-            categorias={categoriasCompra}
-            comprasGenerales={comprasGenerales}
-            comprasTour={comprasTour}
-            isReadOnly={!isAdmin}
-            isSubmitting={isSubmittingCompra}
-            tourId={selectedTourId}
-            onCreate={createCompra}
-            onDelete={deleteCompra}
-            onUpdate={updateCompra}
           />
         </div>
       ) : null}
