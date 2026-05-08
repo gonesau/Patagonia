@@ -1,10 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { CalendarDays, Compass, CreditCard, Home, Settings, Users, X } from "lucide-react";
+import { BookTemplate, CalendarDays, Compass, CreditCard, Home, MapPinned, Settings, Users, X } from "lucide-react";
 
 const links = [
   { to: "/dashboard", label: "Dashboard", icon: Home },
   { to: "/vagos", label: "Vagos", icon: Users },
-  { to: "/tours", label: "Ocurrencias", icon: Compass },
+  { to: "/guias", label: "Guías", icon: MapPinned },
+  { to: "/plantillas", label: "Plantillas", icon: BookTemplate },
+  { to: "/tours", label: "Tours", icon: Compass },
   { to: "/calendario", label: "Calendario", icon: CalendarDays },
   { to: "/reportes", label: "Reportes", icon: CreditCard },
   { to: "/configuracion", label: "Configuración", icon: Settings },

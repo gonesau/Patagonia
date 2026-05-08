@@ -5,9 +5,12 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { Table } from "@/components/ui/Table";
+import { TableActions } from "@/components/ui/TableActions";
 import { transporteService } from "@/services/transporteService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
+import { formatPlate } from "@/utils/inputMasks";
 import { transporteFormSchema, type TransporteFormValues } from "@/utils/validaciones";
 import type { Transporte } from "@/types/transporte.types";
 
@@ -25,9 +28,15 @@ const defaultValues: TransporteFormValues = {
 export function TransportePage() {
   const [unidades, setUnidades] = useState<Transporte[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [selectedUnidad, setSelectedUnidad] = useState<Transporte | null>(null);
+  const [unidadToDelete, setUnidadToDelete] = useState<Transporte | null>(null);
+  const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
   const form = useForm<TransporteFormValues>({
     resolver: zodResolver(transporteFormSchema),
     defaultValues,
+    mode: "onBlur",
+    reValidateMode: "onChange",
   });
 
   const loadTransporte = async () => {
@@ -43,27 +52,103 @@ export function TransportePage() {
     void loadTransporte();
   }, []);
 
+  const openCreateModal = () => {
+    setSelectedUnidad(null);
+    setSuccessMessage(null);
+    form.reset(defaultValues);
+    setIsFormModalOpen(true);
+  };
+
+  const openEditModal = (unidad: Transporte) => {
+    setSelectedUnidad(unidad);
+    setSuccessMessage(null);
+    form.reset({
+      empresa: unidad.empresa,
+      motorista: unidad.motorista,
+      marca: unidad.marca,
+      modelo: unidad.modelo,
+      placa: unidad.placa,
+      capacidad: unidad.capacidad,
+      costoPorTour: unidad.costoPorTour,
+      activo: unidad.activo,
+    });
+    setIsFormModalOpen(true);
+  };
+
+  const closeFormModal = () => {
+    setIsFormModalOpen(false);
+    setSelectedUnidad(null);
+    form.reset(defaultValues);
+  };
+
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      await transporteService.create(values);
-      form.reset(defaultValues);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      if (selectedUnidad) {
+        await transporteService.update(selectedUnidad.id, values);
+        setSuccessMessage("Unidad actualizada exitosamente.");
+      } else {
+        await transporteService.create(values);
+        setSuccessMessage("Unidad registrada exitosamente.");
+      }
+      closeFormModal();
       await loadTransporte();
     } catch (error) {
       setErrorMessage(toServiceErrorMessage(error));
     }
   });
 
+  const handleDelete = async () => {
+    if (!unidadToDelete) {
+      return;
+    }
+
+    try {
+      setErrorMessage(null);
+      await transporteService.update(unidadToDelete.id, { activo: false });
+      setUnidadToDelete(null);
+      setSuccessMessage("Unidad eliminada del listado activo.");
+      await loadTransporte();
+    } catch (error) {
+      setErrorMessage(toServiceErrorMessage(error));
+    }
+  };
+
   return (
     <>
       <PageHeader title="Gestión de Transporte" description="Registro de flota, costos y disponibilidad." />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
+      <Card>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 className="font-heading text-lg">Listado de unidades</h3>
+          <Button onClick={openCreateModal}>Agregar unidad</Button>
+        </div>
+        {errorMessage ? <p className="mb-3 text-sm text-danger">{errorMessage}</p> : null}
+        {successMessage ? <p className="mb-3 text-sm text-success">{successMessage}</p> : null}
+        <Table
+          emptyMessage="No hay unidades registradas."
+          headers={["Empresa", "Placa", "Capacidad", "Costo", "Estado", "Acciones"]}
+          rows={unidades.map((item) => ({
+            key: item.id,
+            cells: [
+              item.empresa,
+              item.placa,
+              item.capacidad,
+              `$${item.costoPorTour.toFixed(2)}`,
+              item.activo ? "Activa" : "Inactiva",
+              <TableActions key={`actions-${item.id}`} onDelete={() => setUnidadToDelete(item)} onEdit={() => openEditModal(item)} />,
+            ],
+          }))}
+        />
+      </Card>
+      <Modal isOpen={isFormModalOpen} onClose={closeFormModal} size="lg" title={selectedUnidad ? "Editar unidad" : "Agregar unidad"}>
+        <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
+          <div className="grid gap-3 md:grid-cols-2">
             <Input label="Empresa" {...form.register("empresa")} error={form.formState.errors.empresa?.message} />
             <Input label="Motorista" {...form.register("motorista")} error={form.formState.errors.motorista?.message} />
             <Input label="Marca" {...form.register("marca")} error={form.formState.errors.marca?.message} />
             <Input label="Modelo" {...form.register("modelo")} error={form.formState.errors.modelo?.message} />
-            <Input label="Placa" {...form.register("placa")} error={form.formState.errors.placa?.message} />
+            <Input label="Placa" mask={formatPlate} {...form.register("placa")} error={form.formState.errors.placa?.message} />
             <Input
               label="Capacidad"
               type="number"
@@ -76,23 +161,34 @@ export function TransportePage() {
               {...form.register("costoPorTour", { valueAsNumber: true })}
               error={form.formState.errors.costoPorTour?.message}
             />
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" {...form.register("activo")} />
-              Unidad activa
-            </label>
-            <Button type="submit" className="w-full">
-              Guardar unidad
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" {...form.register("activo")} />
+            Unidad activa
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={closeFormModal}>
+              Cancelar
             </Button>
-          </form>
-        </Card>
-        <Card>
-          {errorMessage ? <p className="mb-3 text-sm text-danger">{errorMessage}</p> : null}
-          <Table
-            headers={["Empresa", "Placa", "Capacidad", "Costo"]}
-            rows={unidades.map((item) => [item.empresa, item.placa, item.capacidad, `$${item.costoPorTour.toFixed(2)}`])}
-          />
-        </Card>
-      </div>
+            <Button disabled={form.formState.isSubmitting} type="submit">
+              {form.formState.isSubmitting ? "Guardando..." : selectedUnidad ? "Actualizar unidad" : "Guardar unidad"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+      <Modal isOpen={Boolean(unidadToDelete)} onClose={() => setUnidadToDelete(null)} size="sm" title="Eliminar unidad">
+        <p className="text-sm text-textDark">
+          Se marcará como inactiva la unidad {unidadToDelete?.placa}. Los tours relacionados se conservarán.
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setUnidadToDelete(null)}>
+            Cancelar
+          </Button>
+          <Button variant="danger" onClick={() => void handleDelete()}>
+            Eliminar
+          </Button>
+        </div>
+      </Modal>
     </>
   );
 }

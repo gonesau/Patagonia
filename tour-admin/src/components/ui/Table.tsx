@@ -1,34 +1,53 @@
 import type { ReactNode } from "react";
 
+export interface TableRow {
+  key: string;
+  cells: ReactNode[];
+}
+
 export function Table({
   headers,
   rows,
+  emptyMessage = "No hay registros para mostrar.",
 }: {
-  headers: string[];
-  rows: Array<Array<ReactNode>>;
+  headers: ReactNode[];
+  rows: Array<Array<ReactNode> | TableRow>;
+  emptyMessage?: string;
 }) {
+  const normalizedRows = rows.map((row, rowIndex) =>
+    Array.isArray(row) ? { key: `row-${rowIndex}`, cells: row } : row,
+  );
+
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="min-w-full bg-white text-left text-sm">
-        <thead className="bg-primary/10">
+      <table className="min-w-full table-striped bg-white text-left text-sm">
+        <thead className="border-b border-border bg-[#f8f9fa]">
           <tr>
-            {headers.map((header) => (
-              <th key={header} className="px-3 py-2 font-semibold text-textDark">
+            {headers.map((header, index) => (
+              <th key={`header-${index}`} className="px-3 py-2 font-semibold text-textDark">
                 {header}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, rowIndex) => (
-            <tr key={`row-${rowIndex}`} className="border-t border-border">
-              {row.map((cell, cellIndex) => (
-                <td key={`cell-${rowIndex}-${cellIndex}`} className="px-3 py-2 text-textDark">
-                  {cell}
-                </td>
-              ))}
+          {normalizedRows.length > 0 ? (
+            normalizedRows.map((row) => (
+              <tr key={row.key} className="border-t border-border odd:bg-white even:bg-[#f8f9fa] hover:bg-primary/10">
+                {row.cells.map((cell, cellIndex) => (
+                  <td key={`${row.key}-cell-${cellIndex}`} className="px-3 py-2 align-middle text-textDark">
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td className="px-3 py-6 text-center text-sm text-neutral" colSpan={headers.length}>
+                {emptyMessage}
+              </td>
             </tr>
-          ))}
+          )}
         </tbody>
       </table>
     </div>

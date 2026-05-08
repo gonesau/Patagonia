@@ -22,8 +22,8 @@ export default {
         textDark: "#1a2e2c",
       },
       fontFamily: {
-        heading: ["Folkies Vantage Sans Folkies", "Sora", "sans-serif"],
-        body: ["Monoglyphic", "Inter", "sans-serif"],
+        heading: ["Sora", "Inter", "sans-serif"],
+        body: ["Inter", "sans-serif"],
         mono: ["JetBrains Mono", "monospace"],
       },
       boxShadow: {

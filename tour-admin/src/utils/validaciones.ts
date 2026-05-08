@@ -1,13 +1,22 @@
 import { z } from "zod";
+import { normalizeDui, normalizePhone } from "./inputMasks";
+
+const phoneSchema = z
+  .string()
+  .refine((value) => normalizePhone(value).length === 8, "Teléfono inválido");
+
+const duiSchema = z
+  .string()
+  .refine((value) => normalizeDui(value).length === 9, "DUI inválido");
 
 export const vagoFormSchema = z.object({
   nombre: z.string().min(1, "Nombre requerido"),
   apellido: z.string().min(1, "Apellido requerido"),
   email: z.string().email("Correo inválido"),
-  telefono: z.string().min(8, "Teléfono inválido"),
+  telefono: phoneSchema,
   contactoEmergenciaNombre: z.string().min(1, "Contacto de emergencia requerido"),
   contactoEmergenciaRelacion: z.string().min(1, "Relación requerida"),
-  contactoEmergenciaTel: z.string().min(8, "Teléfono de emergencia inválido"),
+  contactoEmergenciaTel: phoneSchema,
 });
 
 export type VagoFormValues = z.infer<typeof vagoFormSchema>;
@@ -15,12 +24,12 @@ export type VagoFormValues = z.infer<typeof vagoFormSchema>;
 export const guiaFormSchema = z.object({
   nombre: z.string().min(1, "Nombre requerido"),
   apellido: z.string().min(1, "Apellido requerido"),
-  dui: z.string().min(5, "DUI requerido"),
+  dui: duiSchema,
   email: z.string().email("Correo inválido"),
-  telefono: z.string().min(8, "Teléfono inválido"),
+  telefono: phoneSchema,
   estado: z.enum(["activo", "inactivo", "suspendido"]),
   contactoEmergenciaNombre: z.string().min(1, "Contacto requerido"),
-  contactoEmergenciaTel: z.string().min(8, "Teléfono requerido"),
+  contactoEmergenciaTel: phoneSchema,
 });
 export type GuiaFormValues = z.infer<typeof guiaFormSchema>;
 

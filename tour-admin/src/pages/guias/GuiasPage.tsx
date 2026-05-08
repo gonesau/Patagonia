@@ -5,9 +5,12 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { Table } from "@/components/ui/Table";
+import { TableActions } from "@/components/ui/TableActions";
 import { guiasService } from "@/services/guiasService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
+import { formatDui, formatPhone, normalizeDui, normalizePhone } from "@/utils/inputMasks";
 import { guiaFormSchema, type GuiaFormValues } from "@/utils/validaciones";
 import type { Guia } from "@/types/guia.types";
 
@@ -25,7 +28,16 @@ const defaultValues: GuiaFormValues = {
 export function GuiasPage() {
   const [guias, setGuias] = useState<Guia[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const form = useForm<GuiaFormValues>({ resolver: zodResolver(guiaFormSchema), defaultValues });
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [selectedGuia, setSelectedGuia] = useState<Guia | null>(null);
+  const [guiaToDelete, setGuiaToDelete] = useState<Guia | null>(null);
+  const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
+  const form = useForm<GuiaFormValues>({
+    resolver: zodResolver(guiaFormSchema),
+    defaultValues,
+    mode: "onBlur",
+    reValidateMode: "onChange",
+  });
 
   const loadGuias = async () => {
     try {
@@ -40,27 +52,109 @@ export function GuiasPage() {
     void loadGuias();
   }, []);
 
+  const openCreateModal = () => {
+    setSelectedGuia(null);
+    setSuccessMessage(null);
+    form.reset(defaultValues);
+    setIsFormModalOpen(true);
+  };
+
+  const openEditModal = (guia: Guia) => {
+    setSelectedGuia(guia);
+    setSuccessMessage(null);
+    form.reset({
+      nombre: guia.nombre,
+      apellido: guia.apellido,
+      dui: formatDui(guia.dui),
+      email: guia.email,
+      telefono: formatPhone(guia.telefono),
+      estado: guia.estado,
+      contactoEmergenciaNombre: guia.contactoEmergenciaNombre,
+      contactoEmergenciaTel: formatPhone(guia.contactoEmergenciaTel),
+    });
+    setIsFormModalOpen(true);
+  };
+
+  const closeFormModal = () => {
+    setIsFormModalOpen(false);
+    setSelectedGuia(null);
+    form.reset(defaultValues);
+  };
+
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      await guiasService.create(values);
-      form.reset(defaultValues);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+      const normalizedValues = {
+        ...values,
+        dui: normalizeDui(values.dui),
+        telefono: normalizePhone(values.telefono),
+        contactoEmergenciaTel: normalizePhone(values.contactoEmergenciaTel),
+      };
+      if (selectedGuia) {
+        await guiasService.update(selectedGuia.id, normalizedValues);
+        setSuccessMessage("Guía actualizado exitosamente.");
+      } else {
+        await guiasService.create(normalizedValues);
+        setSuccessMessage("Guía registrado exitosamente.");
+      }
+      closeFormModal();
       await loadGuias();
     } catch (error) {
       setErrorMessage(toServiceErrorMessage(error));
     }
   });
 
+  const handleDelete = async () => {
+    if (!guiaToDelete) {
+      return;
+    }
+
+    try {
+      setErrorMessage(null);
+      await guiasService.update(guiaToDelete.id, { estado: "inactivo" });
+      setGuiaToDelete(null);
+      setSuccessMessage("Guía eliminado del listado operativo.");
+      await loadGuias();
+    } catch (error) {
+      setErrorMessage(toServiceErrorMessage(error));
+    }
+  };
+
   return (
     <>
       <PageHeader title="Gestión de Guías" description="Registro de guías con estado operativo y datos críticos." />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
+      <Card>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 className="font-heading text-lg">Listado de guías</h3>
+          <Button onClick={openCreateModal}>Agregar guía</Button>
+        </div>
+        {errorMessage ? <p className="mb-3 text-sm text-danger">{errorMessage}</p> : null}
+        {successMessage ? <p className="mb-3 text-sm text-success">{successMessage}</p> : null}
+        <Table
+          emptyMessage="No hay guías registrados."
+          headers={["Nombre", "DUI", "Email", "Teléfono", "Estado", "Acciones"]}
+          rows={guias.map((guia) => ({
+            key: guia.id,
+            cells: [
+              `${guia.nombre} ${guia.apellido}`,
+              formatDui(guia.dui),
+              guia.email,
+              formatPhone(guia.telefono),
+              guia.estado,
+              <TableActions key={`actions-${guia.id}`} onDelete={() => setGuiaToDelete(guia)} onEdit={() => openEditModal(guia)} />,
+            ],
+          }))}
+        />
+      </Card>
+      <Modal isOpen={isFormModalOpen} onClose={closeFormModal} size="lg" title={selectedGuia ? "Editar guía" : "Agregar guía"}>
+        <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
+          <div className="grid gap-3 md:grid-cols-2">
             <Input label="Nombre" {...form.register("nombre")} error={form.formState.errors.nombre?.message} />
             <Input label="Apellido" {...form.register("apellido")} error={form.formState.errors.apellido?.message} />
-            <Input label="DUI" {...form.register("dui")} error={form.formState.errors.dui?.message} />
+            <Input label="DUI" mask={formatDui} {...form.register("dui")} error={form.formState.errors.dui?.message} />
             <Input label="Email" {...form.register("email")} error={form.formState.errors.email?.message} />
-            <Input label="Teléfono" {...form.register("telefono")} error={form.formState.errors.telefono?.message} />
+            <Input label="Teléfono" mask={formatPhone} {...form.register("telefono")} error={form.formState.errors.telefono?.message} />
             <Input
               label="Contacto emergencia"
               {...form.register("contactoEmergenciaNombre")}
@@ -68,6 +162,7 @@ export function GuiasPage() {
             />
             <Input
               label="Tel. emergencia"
+              mask={formatPhone}
               {...form.register("contactoEmergenciaTel")}
               error={form.formState.errors.contactoEmergenciaTel?.message}
             />
@@ -79,24 +174,30 @@ export function GuiasPage() {
                 <option value="suspendido">Suspendido</option>
               </select>
             </label>
-            <Button type="submit" className="w-full">
-              Guardar guía
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={closeFormModal}>
+              Cancelar
             </Button>
-          </form>
-        </Card>
-        <Card>
-          {errorMessage ? <p className="mb-3 text-sm text-danger">{errorMessage}</p> : null}
-          <Table
-            headers={["Nombre", "Email", "Teléfono", "Estado"]}
-            rows={guias.map((guia) => [
-              `${guia.nombre} ${guia.apellido}`,
-              guia.email,
-              guia.telefono,
-              guia.estado,
-            ])}
-          />
-        </Card>
-      </div>
+            <Button disabled={form.formState.isSubmitting} type="submit">
+              {form.formState.isSubmitting ? "Guardando..." : selectedGuia ? "Actualizar guía" : "Guardar guía"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+      <Modal isOpen={Boolean(guiaToDelete)} onClose={() => setGuiaToDelete(null)} size="sm" title="Eliminar guía">
+        <p className="text-sm text-textDark">
+          Se marcará como inactivo a {guiaToDelete?.nombre} {guiaToDelete?.apellido}. El historial asociado se conservará.
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setGuiaToDelete(null)}>
+            Cancelar
+          </Button>
+          <Button variant="danger" onClick={() => void handleDelete()}>
+            Eliminar
+          </Button>
+        </div>
+      </Modal>
     </>
   );
 }
