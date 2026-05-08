@@ -1,5 +1,4 @@
 import { logger } from "firebase-functions";
-import ical, { ICalCalendarMethod } from "ical-generator";
 import { getGmailClient } from "./googleClients";
 
 export interface SendEmailInput {
@@ -16,6 +15,9 @@ export interface SendEmailInput {
 }
 
 function buildIcsAttachment(eventData: NonNullable<SendEmailInput["calendar"]>): string {
+  const icalMod = require("ical-generator") as typeof import("ical-generator");
+  const ical = icalMod.default;
+  const ICalCalendarMethod = icalMod.ICalCalendarMethod;
   const calendar = ical({ name: "Patagonia Tours", method: ICalCalendarMethod.REQUEST });
   calendar.createEvent({
     start: eventData.start,

@@ -1,14 +1,31 @@
 {
   "firestore": {
-    "rules": "firestore.rules"
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   },
   "storage": {
     "rules": "storage.rules"
   },
   "hosting": {
+    "site": "soyvago",
     "public": "dist",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [{ "source": "**", "destination": "/index.html" }]
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
   },
-  "functions": [{ "source": "functions" }]
+  "functions": [
+    {
+      "source": "functions"
+    }
+  ]
 }

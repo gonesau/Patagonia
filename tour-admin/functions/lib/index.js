@@ -1,8 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.enviarRecordatorioManual = exports.enviarLinkFotos = exports.crearCarpetaDrive = exports.recordatoriosscheduler = exports.onInscripcionCreada = void 0;
+exports.enviarRecordatorioManual = exports.enviarLinkFotos = exports.crearCarpetaDrive = exports.recordatoriosscheduler = exports.onUsuarioSistemaWrite = exports.onInscripcionCreada = void 0;
 var onInscripcionCreada_1 = require("./triggers/onInscripcionCreada");
 Object.defineProperty(exports, "onInscripcionCreada", { enumerable: true, get: function () { return onInscripcionCreada_1.onInscripcionCreada; } });
+var onUsuarioSistemaWrite_1 = require("./triggers/onUsuarioSistemaWrite");
+Object.defineProperty(exports, "onUsuarioSistemaWrite", { enumerable: true, get: function () { return onUsuarioSistemaWrite_1.onUsuarioSistemaWrite; } });
 var recordatoriosscheduler_1 = require("./scheduled/recordatoriosscheduler");
 Object.defineProperty(exports, "recordatoriosscheduler", { enumerable: true, get: function () { return recordatoriosscheduler_1.recordatoriosscheduler; } });
 var crearCarpetaDrive_1 = require("./http/crearCarpetaDrive");

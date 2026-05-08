@@ -18,5 +18,8 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-export const functions = getFunctions(app);
+const functionsRegion = import.meta.env.VITE_FIREBASE_FUNCTIONS_REGION;
+export const functions = functionsRegion
+  ? getFunctions(app, functionsRegion)
+  : getFunctions(app);
 export const googleProvider = new GoogleAuthProvider();

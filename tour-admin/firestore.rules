@@ -51,7 +51,8 @@ service cloud.firestore {
     }
 
     match /usuarios_sistema/{userId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin() || (isAuth() && request.auth.uid == userId);
+      allow write: if isAdmin();
     }
 
     match /notificaciones/{notifId} {

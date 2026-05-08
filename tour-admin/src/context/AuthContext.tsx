@@ -8,6 +8,9 @@ import {
   type ReactNode,
 } from "react";
 import {
+  FirebaseError,
+} from "firebase/app";
+import {
   onAuthStateChanged,
   signInWithPopup,
   signOut,
@@ -29,6 +32,28 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  "auth/unauthorized-domain":
+    "Este dominio no está autorizado en Firebase Authentication. Agrégalo en Authentication → Settings → Authorized domains.",
+  "auth/operation-not-allowed":
+    "El inicio de sesión con Google está deshabilitado en este proyecto.",
+  "auth/popup-closed-by-user":
+    "Cerraste la ventana de Google antes de completar el inicio de sesión.",
+  "auth/popup-blocked":
+    "El navegador bloqueó la ventana emergente de Google. Permite popups e inténtalo de nuevo.",
+  "auth/cancelled-popup-request": "Se canceló una solicitud de inicio de sesión previa.",
+  "auth/network-request-failed":
+    "Hubo un problema de red al contactar a Google. Verifica tu conexión.",
+};
+
+function mapAuthErrorToMessage(error: unknown): string {
+  if (error instanceof FirebaseError) {
+    return AUTH_ERROR_MESSAGES[error.code] ?? `No fue posible iniciar sesión (${error.code}).`;
+  }
+
+  return "No fue posible iniciar sesión. Inténtalo de nuevo.";
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
@@ -67,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         await loadUserProfile(currentUser.uid);
+        await currentUser.getIdToken(true);
       } catch (error) {
         setProfile(null);
         setErrorMessage(
@@ -83,7 +109,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async () => {
     setErrorMessage(null);
-    await signInWithPopup(auth, googleProvider);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      setErrorMessage(mapAuthErrorToMessage(error));
+    }
   }, []);
 
   const logout = useCallback(async () => {
