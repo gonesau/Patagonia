@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -8,13 +8,17 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Table } from "@/components/ui/Table";
 import { TableActions } from "@/components/ui/TableActions";
+import { tiposVehiculoService } from "@/services/tiposVehiculoService";
 import { transporteService } from "@/services/transporteService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
+import type { TipoVehiculo } from "@/types/tipoVehiculo.types";
 import { formatPlate } from "@/utils/inputMasks";
 import { transporteFormSchema, type TransporteFormValues } from "@/utils/validaciones";
 import type { Transporte } from "@/types/transporte.types";
 
 const defaultValues: TransporteFormValues = {
+  tipoVehiculoId: "",
+  tipoVehiculoNombreSnapshot: "",
   empresa: "",
   motorista: "",
   marca: "",
@@ -29,6 +33,7 @@ export function TransportePage() {
   const [unidades, setUnidades] = useState<Transporte[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [tiposVehiculo, setTiposVehiculo] = useState<TipoVehiculo[]>([]);
   const [selectedUnidad, setSelectedUnidad] = useState<Transporte | null>(null);
   const [unidadToDelete, setUnidadToDelete] = useState<Transporte | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
@@ -38,6 +43,7 @@ export function TransportePage() {
     mode: "onBlur",
     reValidateMode: "onChange",
   });
+  const selectedVehicleTypeId = useWatch({ control: form.control, name: "tipoVehiculoId" }) ?? "";
 
   const loadTransporte = async () => {
     try {
@@ -49,7 +55,9 @@ export function TransportePage() {
   };
 
   useEffect(() => {
-    void loadTransporte();
+    void (async () => {
+      await Promise.all([loadTransporte(), tiposVehiculoService.listActive().then(setTiposVehiculo)]);
+    })();
   }, []);
 
   const openCreateModal = () => {
@@ -64,6 +72,8 @@ export function TransportePage() {
     setSuccessMessage(null);
     form.reset({
       empresa: unidad.empresa,
+      tipoVehiculoId: unidad.tipoVehiculoId ?? "",
+      tipoVehiculoNombreSnapshot: unidad.tipoVehiculoNombreSnapshot ?? "",
       motorista: unidad.motorista,
       marca: unidad.marca,
       modelo: unidad.modelo,
@@ -145,6 +155,26 @@ export function TransportePage() {
         <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
           <div className="grid gap-3 md:grid-cols-2">
             <Input label="Empresa" {...form.register("empresa")} error={form.formState.errors.empresa?.message} />
+            <label className="flex flex-col gap-1 text-sm">
+              <span>Tipo de vehículo</span>
+              <select
+                className="rounded-md border border-border px-3 py-2"
+                value={selectedVehicleTypeId}
+                onChange={(event) => {
+                  const selected = tiposVehiculo.find((item) => item.id === event.target.value);
+                  form.setValue("tipoVehiculoId", event.target.value);
+                  form.setValue("tipoVehiculoNombreSnapshot", selected?.nombre ?? "");
+                }}
+              >
+                <option value="">Selecciona tipo</option>
+                {tiposVehiculo.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <input type="hidden" {...form.register("tipoVehiculoNombreSnapshot")} />
             <Input label="Motorista" {...form.register("motorista")} error={form.formState.errors.motorista?.message} />
             <Input label="Marca" {...form.register("marca")} error={form.formState.errors.marca?.message} />
             <Input label="Modelo" {...form.register("modelo")} error={form.formState.errors.modelo?.message} />

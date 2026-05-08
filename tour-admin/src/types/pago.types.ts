@@ -4,6 +4,7 @@ export interface Pago {
   tourId: string;
   vagoId: string;
   monto: number;
-  metodoPago: "efectivo" | "transferencia" | "tarjeta" | "deposito" | "otro";
+  metodoPagoId?: string;
+  metodoPago: string;
   fecha: Date;
 }

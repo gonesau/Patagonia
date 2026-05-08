@@ -5,7 +5,7 @@ const firebase_functions_1 = require("firebase-functions");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const auth_1 = require("firebase-admin/auth");
 require("../shared/firebaseAdmin");
-const ROLES_PERMITIDOS = new Set(["admin", "guia"]);
+const ROLES_PERMITIDOS = new Set(["admin", "guia", "operador"]);
 function esRolValido(valor) {
     return typeof valor === "string" && ROLES_PERMITIDOS.has(valor);
 }

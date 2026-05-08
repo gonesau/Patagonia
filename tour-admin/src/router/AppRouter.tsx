@@ -11,6 +11,7 @@ import { ToursPage } from "@/pages/tours/ToursPage";
 import { CalendarioPage } from "@/pages/calendario/CalendarioPage";
 import { ReportesPage } from "@/pages/reportes/ReportesPage";
 import { ConfiguracionPage } from "@/pages/configuracion/ConfiguracionPage";
+import { AdministracionPage } from "@/pages/administracion/AdministracionPage";
 import { AccessDeniedPage } from "@/pages/auth/AccessDeniedPage";
 import type { UserRole } from "@/types/usuario.types";
 import { RouteErrorFallback } from "@/components/errors/RouteErrorFallback";
@@ -57,6 +58,7 @@ const router = createBrowserRouter([
               { path: "/transporte", element: <TransportePage /> },
               { path: "/plantillas", element: <PlantillasPage /> },
               { path: "/reportes", element: <ReportesPage /> },
+              { path: "/administracion", element: <AdministracionPage /> },
               { path: "/configuracion", element: <ConfiguracionPage /> },
             ],
           },

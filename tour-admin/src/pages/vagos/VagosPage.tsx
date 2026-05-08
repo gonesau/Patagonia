@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -10,10 +10,14 @@ import { Modal } from "@/components/ui/Modal";
 import { Table } from "@/components/ui/Table";
 import { TableActions } from "@/components/ui/TableActions";
 import { useAuth } from "@/hooks/useAuth";
+import { nivelesExperienciaService } from "@/services/nivelesExperienciaService";
+import { relacionesEmergenciaService } from "@/services/relacionesEmergenciaService";
 import { vagosService } from "@/services/vagosService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
 import { formatPhone, normalizePhone } from "@/utils/inputMasks";
 import { vagoFormSchema, type VagoFormValues } from "@/utils/validaciones";
+import type { NivelExperiencia } from "@/types/nivelExperiencia.types";
+import type { RelacionEmergencia } from "@/types/relacionEmergencia.types";
 import type { Vago } from "@/types/vago.types";
 
 const defaultValues: VagoFormValues = {
@@ -22,8 +26,11 @@ const defaultValues: VagoFormValues = {
   email: "",
   telefono: "",
   contactoEmergenciaNombre: "",
+  contactoEmergenciaRelacionId: "",
   contactoEmergenciaRelacion: "",
   contactoEmergenciaTel: "",
+  nivelExperienciaId: "",
+  nivelExperiencia: "principiante",
 };
 const SEARCH_DEBOUNCE_MS = 300;
 const VAGOS_PAGE_SIZE = 20;
@@ -38,6 +45,8 @@ export function VagosPage() {
   const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | undefined>(undefined);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [relacionesEmergencia, setRelacionesEmergencia] = useState<RelacionEmergencia[]>([]);
+  const [nivelesExperiencia, setNivelesExperiencia] = useState<NivelExperiencia[]>([]);
   const [selectedVago, setSelectedVago] = useState<Vago | null>(null);
   const [vagoToDelete, setVagoToDelete] = useState<Vago | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
@@ -49,6 +58,8 @@ export function VagosPage() {
     mode: "onBlur",
     reValidateMode: "onChange",
   });
+  const selectedRelationId = useWatch({ control: form.control, name: "contactoEmergenciaRelacionId" }) ?? "";
+  const selectedExperienceId = useWatch({ control: form.control, name: "nivelExperienciaId" }) ?? "";
 
   const loadVagos = async (term = "", nextCursor?: QueryDocumentSnapshot<DocumentData>) => {
     try {
@@ -80,7 +91,13 @@ export function VagosPage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void loadVagos();
+      void (async () => {
+        await Promise.all([
+          loadVagos(),
+          relacionesEmergenciaService.listActive().then(setRelacionesEmergencia),
+          nivelesExperienciaService.listActive().then(setNivelesExperiencia),
+        ]);
+      })();
     }, 0);
     return () => {
       window.clearTimeout(timer);
@@ -106,8 +123,11 @@ export function VagosPage() {
       email: vago.email,
       telefono: formatPhone(vago.telefono),
       contactoEmergenciaNombre: vago.contactoEmergenciaNombre,
+      contactoEmergenciaRelacionId: vago.contactoEmergenciaRelacionId ?? "",
       contactoEmergenciaRelacion: vago.contactoEmergenciaRelacion,
       contactoEmergenciaTel: formatPhone(vago.contactoEmergenciaTel),
+      nivelExperienciaId: vago.nivelExperienciaId ?? "",
+      nivelExperiencia: vago.nivelExperiencia,
     });
     setIsFormModalOpen(true);
   };
@@ -133,7 +153,6 @@ export function VagosPage() {
       } else {
         await vagosService.create({
           ...normalizedValues,
-          nivelExperiencia: "principiante",
           activo: true,
           creadoPor: profile?.id ?? "sistema",
         });
@@ -227,17 +246,51 @@ export function VagosPage() {
               {...form.register("contactoEmergenciaNombre")}
               error={form.formState.errors.contactoEmergenciaNombre?.message}
             />
-            <Input
-              label="Relación contacto emergencia"
-              {...form.register("contactoEmergenciaRelacion")}
-              error={form.formState.errors.contactoEmergenciaRelacion?.message}
-            />
+            <input type="hidden" {...form.register("contactoEmergenciaRelacion")} />
+            <label className="flex flex-col gap-1 text-sm">
+              <span>Relación contacto emergencia</span>
+              <select
+                className="rounded-md border border-border px-3 py-2"
+                value={selectedRelationId}
+                onChange={(event) => {
+                  const selected = relacionesEmergencia.find((item) => item.id === event.target.value);
+                  form.setValue("contactoEmergenciaRelacionId", event.target.value);
+                  form.setValue("contactoEmergenciaRelacion", selected?.nombre ?? "");
+                }}
+              >
+                <option value="">Selecciona una relación</option>
+                {relacionesEmergencia.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
             <Input
               label="Teléfono emergencia"
               mask={formatPhone}
               {...form.register("contactoEmergenciaTel")}
               error={form.formState.errors.contactoEmergenciaTel?.message}
             />
+            <label className="flex flex-col gap-1 text-sm">
+              <span>Nivel de experiencia</span>
+              <select
+                className="rounded-md border border-border px-3 py-2"
+                value={selectedExperienceId}
+                onChange={(event) => {
+                  const selected = nivelesExperiencia.find((item) => item.id === event.target.value);
+                  form.setValue("nivelExperienciaId", event.target.value);
+                  form.setValue("nivelExperiencia", selected?.nombre ?? "");
+                }}
+              >
+                <option value="">Selecciona un nivel</option>
+                {nivelesExperiencia.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={closeFormModal}>

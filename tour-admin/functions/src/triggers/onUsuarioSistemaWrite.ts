@@ -3,9 +3,9 @@ import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { getAuth } from "firebase-admin/auth";
 import "../shared/firebaseAdmin";
 
-type RolUsuario = "admin" | "guia";
+type RolUsuario = "admin" | "guia" | "operador";
 
-const ROLES_PERMITIDOS: ReadonlySet<RolUsuario> = new Set(["admin", "guia"]);
+const ROLES_PERMITIDOS: ReadonlySet<RolUsuario> = new Set(["admin", "guia", "operador"]);
 
 function esRolValido(valor: unknown): valor is RolUsuario {
   return typeof valor === "string" && ROLES_PERMITIDOS.has(valor as RolUsuario);

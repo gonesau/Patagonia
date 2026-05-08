@@ -52,7 +52,11 @@ export function ToursPage() {
     vagos,
     inscripciones,
     pagos,
-    compras,
+    comprasTour,
+    comprasGenerales,
+    categoriasCompra,
+    estadosTourCatalog,
+    metodosPagoCatalog,
     selectedTourId,
     paymentInscripcionId,
     errorMessage,
@@ -69,12 +73,14 @@ export function ToursPage() {
     createInscripcion,
     createPago,
     createCompra,
+    updateCompra,
+    deleteCompra,
   } = useToursPageState(profile);
 
   const [selectedVagoId, setSelectedVagoId] = useState<string>("");
   const [inscripcionMontoTotal, setInscripcionMontoTotal] = useState<number>(0);
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
-  const [purchaseAmount, setPurchaseAmount] = useState<number>(0);
+  const [paymentMethodId, setPaymentMethodId] = useState<string>("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedTourToEdit, setSelectedTourToEdit] = useState<TourOcurrencia | null>(null);
   const [tourToDelete, setTourToDelete] = useState<TourOcurrencia | null>(null);
@@ -125,6 +131,7 @@ export function ToursPage() {
       const { fechaInicio, fechaFin, ...rest } = values;
       const normalizedValues = {
         ...rest,
+        estadoId: estadosTourCatalog.find((item) => item.nombre === values.estado)?.id,
         cupoMaximo: Number(values.cupoMaximo),
         cupoMinimo: Number(values.cupoMinimo),
         precioVenta: Number(values.precioVenta),
@@ -168,7 +175,7 @@ export function ToursPage() {
 
   const selectedTour = tours.find((tour) => tour.id === selectedTourId);
   const ingresosRecibidos = inscripciones.reduce((total, item) => total + item.montoPagado, 0);
-  const costoCompras = compras.reduce((total, item) => total + item.monto, 0);
+  const costoCompras = comprasTour.reduce((total, item) => total + item.monto, 0);
   const financial = calculateTourMargin(
     ingresosRecibidos,
     selectedTour?.costoTransporte ?? 0,
@@ -188,23 +195,15 @@ export function ToursPage() {
     const paymentCreated = await createPago({
       inscripcionId: paymentInscripcionId,
       monto: paymentAmount,
+      metodoPago:
+        metodosPagoCatalog.find((item) => item.id === paymentMethodId)?.nombre ||
+        metodosPagoCatalog[0]?.nombre ||
+        "transferencia",
+      metodoPagoId: paymentMethodId || undefined,
     });
     if (paymentCreated) {
       setPaymentAmount(0);
     }
-  };
-
-  const handleRegistrarCompra = async () => {
-    if (purchaseAmount <= 0) {
-      return;
-    }
-    await createCompra({
-      categoria: "logistica",
-      descripcion: "Compra registrada manualmente",
-      monto: purchaseAmount,
-      fecha: new Date(),
-    });
-    setPurchaseAmount(0);
   };
 
   return (
@@ -246,17 +245,23 @@ export function ToursPage() {
             pagos={pagos}
             paymentInscripcionId={paymentInscripcionId}
             paymentAmount={paymentAmount}
+            paymentMethodId={paymentMethodId}
+            paymentMethods={metodosPagoCatalog}
             isSubmitting={isSubmittingPago}
             onSelectInscripcion={setPaymentInscripcionId}
             onAmountChange={setPaymentAmount}
+            onSelectMethod={setPaymentMethodId}
             onSubmit={() => void handleRegistrarPago()}
           />
           <ComprasPanel
-            comprasCount={compras.length}
-            amount={purchaseAmount}
+            tourId={selectedTourId}
+            comprasTour={comprasTour}
+            comprasGenerales={comprasGenerales}
+            categorias={categoriasCompra}
             isSubmitting={isSubmittingCompra}
-            onAmountChange={setPurchaseAmount}
-            onSubmit={() => void handleRegistrarCompra()}
+            onCreate={createCompra}
+            onUpdate={updateCompra}
+            onDelete={deleteCompra}
           />
         </div>
       ) : null}
@@ -300,12 +305,12 @@ export function ToursPage() {
             <label className="flex flex-col gap-1 text-sm">
               <span>Estado</span>
               <select className="rounded-md border border-border px-3 py-2" {...form.register("estado")}>
-                <option value="borrador">Borrador</option>
-                <option value="publicado">Publicado</option>
-                <option value="lleno">Lleno</option>
-                <option value="en_curso">En curso</option>
-                <option value="realizado">Realizado</option>
-                <option value="cancelado">Cancelado</option>
+                <option value="">Selecciona estado</option>
+                {estadosTourCatalog.map((item) => (
+                  <option key={item.id} value={item.nombre}>
+                    {item.nombre}
+                  </option>
+                ))}
               </select>
             </label>
             <Input label="Punto de encuentro" {...form.register("puntoEncuentro")} error={form.formState.errors.puntoEncuentro?.message} />

@@ -1,7 +1,12 @@
 export interface Compra {
   id: string;
-  categoria: "snacks_alimentacion" | "equipo_hiking" | "primeros_auxilios" | "logistica" | "otro";
+  nombre: string;
   descripcion: string;
+  categoriaId: string;
+  categoriaNombreSnapshot: string;
   monto: number;
   fecha: Date;
+  tourId: string | null;
+  creadoEn?: Date;
+  actualizadoEn?: Date;
 }

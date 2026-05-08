@@ -15,8 +15,11 @@ export const vagoFormSchema = z.object({
   email: z.string().email("Correo inválido"),
   telefono: phoneSchema,
   contactoEmergenciaNombre: z.string().min(1, "Contacto de emergencia requerido"),
+  contactoEmergenciaRelacionId: z.string().optional(),
   contactoEmergenciaRelacion: z.string().min(1, "Relación requerida"),
   contactoEmergenciaTel: phoneSchema,
+  nivelExperienciaId: z.string().optional(),
+  nivelExperiencia: z.string().min(1, "Nivel de experiencia requerido"),
 });
 
 export type VagoFormValues = z.infer<typeof vagoFormSchema>;
@@ -27,13 +30,15 @@ export const guiaFormSchema = z.object({
   dui: duiSchema,
   email: z.string().email("Correo inválido"),
   telefono: phoneSchema,
-  estado: z.enum(["activo", "inactivo", "suspendido"]),
+  estado: z.string().min(1, "Estado requerido"),
   contactoEmergenciaNombre: z.string().min(1, "Contacto requerido"),
   contactoEmergenciaTel: phoneSchema,
 });
 export type GuiaFormValues = z.infer<typeof guiaFormSchema>;
 
 export const transporteFormSchema = z.object({
+  tipoVehiculoId: z.string().min(1, "Tipo de vehículo requerido"),
+  tipoVehiculoNombreSnapshot: z.string().min(1, "Tipo de vehículo requerido"),
   empresa: z.string().min(1, "Empresa requerida"),
   motorista: z.string().min(1, "Motorista requerido"),
   marca: z.string().min(1, "Marca requerida"),
@@ -48,7 +53,8 @@ export type TransporteFormValues = z.infer<typeof transporteFormSchema>;
 export const plantillaFormSchema = z.object({
   nombre: z.string().min(1, "Nombre requerido"),
   descripcion: z.string().min(1, "Descripción requerida"),
-  dificultad: z.enum(["muy_facil", "facil", "moderado", "dificil", "muy_dificil"]),
+  dificultad: z.string().min(1, "Dificultad requerida"),
+  dificultadId: z.string().optional(),
   precioBase: z.number().min(0, "Precio inválido"),
   activa: z.boolean(),
 });
@@ -58,7 +64,8 @@ export const tourFormSchema = z
   .object({
     plantillaId: z.string().min(1, "Plantilla requerida"),
     nombre: z.string().min(1, "Nombre requerido"),
-    estado: z.enum(["borrador", "publicado", "lleno", "en_curso", "realizado", "cancelado"]),
+    estado: z.string().min(1, "Estado requerido"),
+    estadoId: z.string().optional(),
     guiaId: z.string().min(1, "Guía requerido"),
     fechaInicio: z.string().min(1, "Fecha de inicio requerida"),
     fechaFin: z.string().min(1, "Fecha de fin requerida"),

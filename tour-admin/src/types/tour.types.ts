@@ -4,7 +4,8 @@ export interface TourPlantilla {
   descripcion: string;
   distanciaKm?: number;
   elevacionM?: number;
-  dificultad: "muy_facil" | "facil" | "moderado" | "dificil" | "muy_dificil";
+  dificultadId?: string;
+  dificultad: string;
   wikiloc?: string;
   equipoRecomendado?: string;
   itinerarioTipo?: string;
@@ -20,7 +21,8 @@ export interface TourOcurrencia {
   id: string;
   plantillaId: string;
   nombre: string;
-  estado: "borrador" | "publicado" | "lleno" | "en_curso" | "realizado" | "cancelado";
+  estadoId?: string;
+  estado: string;
   guiaId: string;
   fechaInicio: Date;
   fechaFin: Date;

@@ -1,5 +1,7 @@
 export interface Transporte {
   id: string;
+  tipoVehiculoId?: string;
+  tipoVehiculoNombreSnapshot?: string;
   empresa: string;
   motorista: string;
   telefonoMotorista?: string;

@@ -6,6 +6,7 @@ import {
   Compass,
   CreditCard,
   Home,
+  ListChecks,
   MapPinned,
   Settings,
   Users,
@@ -21,6 +22,7 @@ const links = [
   { to: "/tours", label: "Tours", icon: Compass },
   { to: "/calendario", label: "Calendario", icon: CalendarDays },
   { to: "/reportes", label: "Reportes", icon: CreditCard },
+  { to: "/administracion", label: "Administración", icon: ListChecks },
   { to: "/configuracion", label: "Configuración", icon: Settings },
 ];
 

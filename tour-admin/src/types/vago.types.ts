@@ -8,9 +8,11 @@ export interface Vago {
   dui?: string;
   fechaNacimiento?: Date;
   contactoEmergenciaNombre: string;
+  contactoEmergenciaRelacionId?: string;
   contactoEmergenciaRelacion: string;
   contactoEmergenciaTel: string;
-  nivelExperiencia: "principiante" | "intermedio" | "avanzado" | "experto";
+  nivelExperienciaId?: string;
+  nivelExperiencia: string;
   restriccionesMedicas?: string;
   notasInternas?: string;
   activo: boolean;

@@ -9,15 +9,18 @@ import { Modal } from "@/components/ui/Modal";
 import { Table } from "@/components/ui/Table";
 import { TableActions } from "@/components/ui/TableActions";
 import { useAuth } from "@/hooks/useAuth";
+import { dificultadesPlantillaService } from "@/services/dificultadesPlantillaService";
 import { plantillasService } from "@/services/plantillasService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
 import { plantillaFormSchema, type PlantillaFormValues } from "@/utils/validaciones";
+import type { DificultadPlantilla } from "@/types/dificultadPlantilla.types";
 import type { TourPlantilla } from "@/types/tour.types";
 
 const defaultValues: PlantillaFormValues = {
   nombre: "",
   descripcion: "",
-  dificultad: "moderado",
+  dificultad: "",
+  dificultadId: "",
   precioBase: 0,
   activa: true,
 };
@@ -27,6 +30,7 @@ export function PlantillasPage() {
   const [plantillas, setPlantillas] = useState<TourPlantilla[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [dificultades, setDificultades] = useState<DificultadPlantilla[]>([]);
   const [selectedPlantilla, setSelectedPlantilla] = useState<TourPlantilla | null>(null);
   const [plantillaToDelete, setPlantillaToDelete] = useState<TourPlantilla | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
@@ -47,7 +51,9 @@ export function PlantillasPage() {
   };
 
   useEffect(() => {
-    void loadPlantillas();
+    void (async () => {
+      await Promise.all([loadPlantillas(), dificultadesPlantillaService.listActive().then(setDificultades)]);
+    })();
   }, []);
 
   const openCreateModal = () => {
@@ -64,6 +70,7 @@ export function PlantillasPage() {
       nombre: plantilla.nombre,
       descripcion: plantilla.descripcion,
       dificultad: plantilla.dificultad,
+      dificultadId: plantilla.dificultadId ?? "",
       precioBase: plantilla.precioBase,
       activa: plantilla.activa,
     });
@@ -157,11 +164,12 @@ export function PlantillasPage() {
             <label className="flex flex-col gap-1 text-sm">
               <span>Dificultad</span>
               <select className="rounded-md border border-border px-3 py-2" {...form.register("dificultad")}>
-                <option value="muy_facil">Muy fácil</option>
-                <option value="facil">Fácil</option>
-                <option value="moderado">Moderado</option>
-                <option value="dificil">Difícil</option>
-                <option value="muy_dificil">Muy difícil</option>
+                <option value="">Selecciona dificultad</option>
+                {dificultades.map((item) => (
+                  <option key={item.id} value={item.nombre}>
+                    {item.nombre}
+                  </option>
+                ))}
               </select>
             </label>
             <Input

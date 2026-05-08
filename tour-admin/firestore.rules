@@ -13,6 +13,10 @@ service cloud.firestore {
       return isAuth() && request.auth.token.rol == 'guia';
     }
 
+    function isOperador() {
+      return isAuth() && request.auth.token.rol == 'operador';
+    }
+
     match /vagos/{vagoId} {
       allow read, write: if isAdmin();
     }
@@ -46,6 +50,10 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    match /compras/{compraId} {
+      allow read, write: if isAdmin();
+    }
+
     match /pagos/{pagoId} {
       allow read, write: if isAdmin();
     }
@@ -53,6 +61,38 @@ service cloud.firestore {
     match /usuarios_sistema/{userId} {
       allow read: if isAdmin() || (isAuth() && request.auth.uid == userId);
       allow write: if isAdmin();
+    }
+
+    match /categoriasCompra/{itemId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /tiposVehiculo/{itemId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /relacionesEmergencia/{itemId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /estadosTour/{itemId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /metodosPago/{itemId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /dificultadesPlantilla/{itemId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /estadosGuia/{itemId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /nivelesExperiencia/{itemId} {
+      allow read, write: if isAdmin();
     }
 
     match /notificaciones/{notifId} {

@@ -8,10 +8,12 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Table } from "@/components/ui/Table";
 import { TableActions } from "@/components/ui/TableActions";
+import { estadosGuiaService } from "@/services/estadosGuiaService";
 import { guiasService } from "@/services/guiasService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
 import { formatDui, formatPhone, normalizeDui, normalizePhone } from "@/utils/inputMasks";
 import { guiaFormSchema, type GuiaFormValues } from "@/utils/validaciones";
+import type { EstadoGuia } from "@/types/estadoGuia.types";
 import type { Guia } from "@/types/guia.types";
 
 const defaultValues: GuiaFormValues = {
@@ -29,6 +31,7 @@ export function GuiasPage() {
   const [guias, setGuias] = useState<Guia[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [estadosGuia, setEstadosGuia] = useState<EstadoGuia[]>([]);
   const [selectedGuia, setSelectedGuia] = useState<Guia | null>(null);
   const [guiaToDelete, setGuiaToDelete] = useState<Guia | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
@@ -49,7 +52,9 @@ export function GuiasPage() {
   };
 
   useEffect(() => {
-    void loadGuias();
+    void (async () => {
+      await Promise.all([loadGuias(), estadosGuiaService.listActive().then(setEstadosGuia)]);
+    })();
   }, []);
 
   const openCreateModal = () => {
@@ -169,9 +174,12 @@ export function GuiasPage() {
             <label className="flex flex-col gap-1 text-sm">
               <span>Estado</span>
               <select className="rounded-md border border-border px-3 py-2" {...form.register("estado")}>
-                <option value="activo">Activo</option>
-                <option value="inactivo">Inactivo</option>
-                <option value="suspendido">Suspendido</option>
+                <option value="">Selecciona estado</option>
+                {estadosGuia.map((item) => (
+                  <option key={item.id} value={item.nombre}>
+                    {item.nombre}
+                  </option>
+                ))}
               </select>
             </label>
           </div>

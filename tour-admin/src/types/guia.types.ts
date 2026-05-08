@@ -6,7 +6,8 @@ export interface Guia {
   email: string;
   telefono: string;
   especialidad?: string;
-  estado: "activo" | "inactivo" | "suspendido";
+  estadoId?: string;
+  estado: string;
   grupoSanguineo?: string;
   alergias?: string;
   condicionesMedicas?: string;
