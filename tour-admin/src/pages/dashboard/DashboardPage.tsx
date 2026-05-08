@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { getDashboardMetrics, type DashboardMetrics } from "@/services/dashboardService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
+import { CalendarDays, HandCoins, Route, Users } from "lucide-react";
 
 export function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics>({
@@ -32,21 +33,33 @@ export function DashboardPage() {
         description="Métricas operativas, alertas y tours próximos de los próximos 30 días."
       />
       {errorMessage ? <p className="mb-3 text-sm text-danger">{errorMessage}</p> : null}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
-          <p className="text-sm text-neutral">Tours próximos</p>
+          <div className="mb-1 flex items-center gap-2 text-sm text-neutral">
+            <CalendarDays size={16} strokeWidth={1.8} />
+            <p>Tours próximos</p>
+          </div>
           <p className="font-mono text-2xl text-textDark">{metrics.toursProximos30Dias}</p>
         </Card>
         <Card>
-          <p className="text-sm text-neutral">Ingresos del mes</p>
+          <div className="mb-1 flex items-center gap-2 text-sm text-neutral">
+            <HandCoins size={16} strokeWidth={1.8} />
+            <p>Ingresos del mes</p>
+          </div>
           <p className="font-mono text-2xl text-textDark">${metrics.ingresosMes.toFixed(2)}</p>
         </Card>
         <Card>
-          <p className="text-sm text-neutral">Vagos activos</p>
+          <div className="mb-1 flex items-center gap-2 text-sm text-neutral">
+            <Users size={16} strokeWidth={1.8} />
+            <p>Vagos activos</p>
+          </div>
           <p className="font-mono text-2xl text-textDark">{metrics.vagosActivos}</p>
         </Card>
         <Card>
-          <p className="text-sm text-neutral">Tours realizados en el año</p>
+          <div className="mb-1 flex items-center gap-2 text-sm text-neutral">
+            <Route size={16} strokeWidth={1.8} />
+            <p>Tours realizados en el año</p>
+          </div>
           <p className="font-mono text-2xl text-textDark">{metrics.toursAnio}</p>
         </Card>
       </div>

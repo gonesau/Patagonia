@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/hooks/useAuth";
 
 export function LoginPage() {
-  const { firebaseUser, isLoading, errorMessage, signInWithGoogle } = useAuth();
+  const { firebaseUser, isLoading, errorMessage, isEmbeddedBrowser, signInWithGoogle } = useAuth();
 
   if (firebaseUser) {
     return <Navigate to="/dashboard" replace />;
@@ -18,6 +18,12 @@ export function LoginPage() {
           <p className="text-sm text-neutral">
             Solo administradores y guías previamente registrados pueden acceder.
           </p>
+          {isEmbeddedBrowser ? (
+            <p className="text-sm text-warning">
+              Detectamos un navegador integrado. Si el login falla, abre este enlace en Safari o
+              Chrome.
+            </p>
+          ) : null}
           {errorMessage ? <p className="text-sm text-danger">{errorMessage}</p> : null}
           <Button className="w-full" disabled={isLoading} onClick={() => void signInWithGoogle()}>
             {isLoading ? "Validando acceso..." : "Iniciar sesión con Google"}

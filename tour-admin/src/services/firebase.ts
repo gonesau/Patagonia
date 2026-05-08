@@ -1,5 +1,12 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import {
+  browserLocalPersistence,
+  getAuth,
+  GoogleAuthProvider,
+  inMemoryPersistence,
+  setPersistence,
+  type Auth,
+} from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 import { getStorage } from "firebase/storage";
@@ -23,3 +30,19 @@ export const functions = functionsRegion
   ? getFunctions(app, functionsRegion)
   : getFunctions(app);
 export const googleProvider = new GoogleAuthProvider();
+
+type AuthPersistenceStrategy = "local" | "memory" | "default";
+
+export async function setupAuthPersistence(authInstance: Auth): Promise<AuthPersistenceStrategy> {
+  try {
+    await setPersistence(authInstance, browserLocalPersistence);
+    return "local";
+  } catch {
+    try {
+      await setPersistence(authInstance, inMemoryPersistence);
+      return "memory";
+    } catch {
+      return "default";
+    }
+  }
+}

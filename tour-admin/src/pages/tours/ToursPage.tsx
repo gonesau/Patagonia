@@ -23,6 +23,7 @@ import type { Inscripcion } from "@/types/inscripcion.types";
 import type { Pago } from "@/types/pago.types";
 import type { Compra } from "@/types/compra.types";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
+import { CircleDollarSign, ClipboardList, HandCoins, Plus, ReceiptText, UserPlus } from "lucide-react";
 
 const defaultValues: TourFormValues = {
   plantillaId: "",
@@ -209,9 +210,12 @@ export function ToursPage() {
     <>
       <PageHeader title="Ocurrencias de Tour" description="Gestión integral de tours, inscripciones, pagos y margen." />
       {errorMessage ? <p className="mb-4 rounded-md bg-danger/10 p-3 text-sm text-danger">{errorMessage}</p> : null}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2">
         <Card>
-          <h3 className="mb-3 font-heading text-xl">Crear ocurrencia</h3>
+          <h3 className="mb-3 flex items-center gap-2 font-heading text-xl">
+            <Plus size={18} strokeWidth={1.8} />
+            Crear ocurrencia
+          </h3>
           <form className="space-y-3" onSubmit={(event) => void onTourSubmit(event)}>
             <label className="flex flex-col gap-1 text-sm">
               <span>Plantilla</span>
@@ -237,8 +241,10 @@ export function ToursPage() {
               </select>
             </label>
             <Input label="Punto de encuentro" {...form.register("puntoEncuentro")} />
-            <Input label="Cupo máximo" type="number" {...form.register("cupoMaximo", { valueAsNumber: true })} />
-            <Input label="Cupo mínimo" type="number" {...form.register("cupoMinimo", { valueAsNumber: true })} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input label="Cupo máximo" type="number" {...form.register("cupoMaximo", { valueAsNumber: true })} />
+              <Input label="Cupo mínimo" type="number" {...form.register("cupoMinimo", { valueAsNumber: true })} />
+            </div>
             <Input label="Precio de venta" type="number" {...form.register("precioVenta", { valueAsNumber: true })} />
             <Button type="submit" className="w-full">
               Guardar ocurrencia
@@ -246,7 +252,10 @@ export function ToursPage() {
           </form>
         </Card>
         <Card>
-          <h3 className="mb-3 font-heading text-xl">Ocurrencias</h3>
+          <h3 className="mb-3 flex items-center gap-2 font-heading text-xl">
+            <ClipboardList size={18} strokeWidth={1.8} />
+            Ocurrencias
+          </h3>
           <label className="mb-3 flex flex-col gap-1 text-sm">
             <span>Selecciona una ocurrencia</span>
             <select
@@ -262,17 +271,26 @@ export function ToursPage() {
               ))}
             </select>
           </label>
-          <div className="grid gap-2 md:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-3">
             <Card>
-              <p className="text-xs text-neutral">Ingresos recibidos</p>
+              <p className="inline-flex items-center gap-1 text-xs text-neutral">
+                <HandCoins size={14} strokeWidth={1.8} />
+                Ingresos recibidos
+              </p>
               <p className="font-mono text-lg">${ingresosRecibidos.toFixed(2)}</p>
             </Card>
             <Card>
-              <p className="text-xs text-neutral">Costo total</p>
+              <p className="inline-flex items-center gap-1 text-xs text-neutral">
+                <ReceiptText size={14} strokeWidth={1.8} />
+                Costo total
+              </p>
               <p className="font-mono text-lg">${financial.costoTotal.toFixed(2)}</p>
             </Card>
             <Card>
-              <p className="text-xs text-neutral">Margen</p>
+              <p className="inline-flex items-center gap-1 text-xs text-neutral">
+                <CircleDollarSign size={14} strokeWidth={1.8} />
+                Margen
+              </p>
               <p className={`font-mono text-lg ${financial.margenGanancia >= 0 ? "text-success" : "text-danger"}`}>
                 ${financial.margenGanancia.toFixed(2)}
               </p>
@@ -281,9 +299,12 @@ export function ToursPage() {
         </Card>
       </div>
       {selectedTourId ? (
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <div className="mt-4 grid gap-4 xl:grid-cols-3">
           <Card>
-            <h3 className="mb-2 font-heading text-lg">Inscribir Vago</h3>
+            <h3 className="mb-2 flex items-center gap-2 font-heading text-lg">
+              <UserPlus size={17} strokeWidth={1.8} />
+              Inscribir Vago
+            </h3>
             <label className="mb-2 flex flex-col gap-1 text-sm">
               <span>Vago</span>
               <select
@@ -343,7 +364,7 @@ export function ToursPage() {
             </Button>
             <p className="mt-2 text-sm text-neutral">Compras registradas: {compras.length}</p>
           </Card>
-          <div className="lg:col-span-3">
+          <div className="xl:col-span-3">
             <Card>
               <h3 className="mb-3 font-heading text-lg">Estado de pagos</h3>
               <Table

@@ -8,6 +8,7 @@ import { pagosService } from "@/services/pagosService";
 import { comprasService } from "@/services/comprasService";
 import { calculateTourMargin } from "@/utils/financiero.utils";
 import { generateVagosListPdf } from "@/utils/pdf.utils";
+import { FileDown, FileSpreadsheet } from "lucide-react";
 
 export function ReportesPage() {
   const [rows, setRows] = useState<Array<[string, string, string, string]>>([]);
@@ -54,11 +55,18 @@ export function ReportesPage() {
     <>
       <PageHeader title="Reportes Financieros" description="Consolidado de ingresos, costos y margen por ocurrencia." />
       <Card>
-        <div className="mb-3 flex gap-2">
-          <Button onClick={() => void buildReport()} disabled={isLoading}>
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row">
+          <Button className="inline-flex items-center justify-center gap-2" onClick={() => void buildReport()} disabled={isLoading}>
+            <FileSpreadsheet size={16} strokeWidth={1.8} />
             {isLoading ? "Generando..." : "Generar reporte"}
           </Button>
-          <Button variant="secondary" onClick={exportReport} disabled={!rows.length}>
+          <Button
+            className="inline-flex items-center justify-center gap-2"
+            variant="secondary"
+            onClick={exportReport}
+            disabled={!rows.length}
+          >
+            <FileDown size={16} strokeWidth={1.8} />
             Exportar PDF
           </Button>
         </div>

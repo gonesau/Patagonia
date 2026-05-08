@@ -25,6 +25,14 @@ export function CalendarioPage() {
   const [guides, setGuides] = useState<Array<{ id: string; name: string }>>([]);
   const [guideFilter, setGuideFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+
+  useEffect(() => {
+    const syncViewport = () => setIsMobile(window.innerWidth < 768);
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
+    return () => window.removeEventListener("resize", syncViewport);
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -99,11 +107,16 @@ export function CalendarioPage() {
         </div>
         <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView="dayGridMonth"
-          headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek" }}
+          initialView={isMobile ? "timeGridWeek" : "dayGridMonth"}
+          headerToolbar={
+            isMobile
+              ? { left: "prev,next", center: "title", right: "today" }
+              : { left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek" }
+          }
           locale="es"
           events={filteredEvents}
           height="auto"
+          dayMaxEventRows={isMobile ? 2 : 4}
         />
       </Card>
     </>
