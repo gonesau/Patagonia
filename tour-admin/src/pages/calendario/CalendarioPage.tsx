@@ -16,6 +16,7 @@ const statusColorMap: Record<string, string> = {
   cancelado: "#c0544a",
   realizado: "#0e3832",
 };
+const MOBILE_LAYOUT_BREAKPOINT = 1024;
 
 export function CalendarioPage() {
   const { profile } = useAuth();
@@ -25,10 +26,12 @@ export function CalendarioPage() {
   const [guides, setGuides] = useState<Array<{ id: string; name: string }>>([]);
   const [guideFilter, setGuideFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(() =>
+    typeof window !== "undefined" ? window.innerWidth < MOBILE_LAYOUT_BREAKPOINT : false,
+  );
 
   useEffect(() => {
-    const syncViewport = () => setIsMobile(window.innerWidth < 768);
+    const syncViewport = () => setIsMobile(window.innerWidth < MOBILE_LAYOUT_BREAKPOINT);
     syncViewport();
     window.addEventListener("resize", syncViewport);
     return () => window.removeEventListener("resize", syncViewport);

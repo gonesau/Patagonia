@@ -8,9 +8,10 @@ import { CalendarDays, HandCoins, Route, Users } from "lucide-react";
 export function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     toursProximos30Dias: 0,
-    vagosActivos: 0,
+    vagosActivos: null,
     ingresosMes: 0,
     toursAnio: 0,
+    hasRestrictedMetrics: false,
   });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -33,6 +34,11 @@ export function DashboardPage() {
         description="Métricas operativas, alertas y tours próximos de los próximos 30 días."
       />
       {errorMessage ? <p className="mb-3 text-sm text-danger">{errorMessage}</p> : null}
+      {metrics.hasRestrictedMetrics ? (
+        <p className="mb-3 text-sm text-neutral">
+          Algunas métricas requieren permisos de administrador y no están disponibles para esta sesión.
+        </p>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <div className="mb-1 flex items-center gap-2 text-sm text-neutral">
@@ -53,7 +59,9 @@ export function DashboardPage() {
             <Users size={16} strokeWidth={1.8} />
             <p>Vagos activos</p>
           </div>
-          <p className="font-mono text-2xl text-textDark">{metrics.vagosActivos}</p>
+          <p className="font-mono text-2xl text-textDark">
+            {metrics.vagosActivos === null ? "Sin acceso" : metrics.vagosActivos}
+          </p>
         </Card>
         <Card>
           <div className="mb-1 flex items-center gap-2 text-sm text-neutral">

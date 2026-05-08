@@ -87,6 +87,14 @@ function mapAuthErrorToMessage(error: unknown): string {
   return "No fue posible iniciar sesión. Inténtalo de nuevo.";
 }
 
+async function startGoogleRedirect(): Promise<void> {
+  try {
+    await signInWithRedirect(auth, googleProvider);
+  } catch (error) {
+    throw new Error(mapAuthErrorToMessage(error));
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UsuarioSistema | null>(null);
@@ -159,14 +167,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       if (isEmbeddedBrowser) {
-        await signInWithRedirect(auth, googleProvider);
+        await startGoogleRedirect();
         return;
       }
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
       if (shouldFallbackToRedirect(error)) {
-        setErrorMessage("Tu navegador limitó el popup. Redirigiendo a Google para continuar.");
-        await signInWithRedirect(auth, googleProvider);
+        try {
+          await startGoogleRedirect();
+        } catch (redirectError) {
+          setErrorMessage(
+            redirectError instanceof Error
+              ? redirectError.message
+              : "No fue posible redirigir a Google. Inténtalo de nuevo.",
+          );
+        }
         return;
       }
       setErrorMessage(mapAuthErrorToMessage(error));
