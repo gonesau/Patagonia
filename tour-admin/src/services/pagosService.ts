@@ -50,7 +50,7 @@ export const pagosService = {
     const pagosCollection = collection(db, "pagos");
     const constraints: QueryConstraint[] = [where("tourId", "==", tourId), orderBy("fecha", "desc"), limit(pageSize)];
     if (options.cursor) {
-      constraints.splice(1, 0, startAfter(options.cursor));
+      constraints.splice(2, 0, startAfter(options.cursor));
     }
     const snapshot = await getDocs(query(pagosCollection, ...constraints));
     const items = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Pago);

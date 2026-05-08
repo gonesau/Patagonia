@@ -74,6 +74,7 @@ export function ToursPage() {
   const [selectedVagoId, setSelectedVagoId] = useState<string>("");
   const [inscripcionMontoTotal, setInscripcionMontoTotal] = useState<number>(0);
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
+  const [purchaseAmount, setPurchaseAmount] = useState<number>(0);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedTourToEdit, setSelectedTourToEdit] = useState<TourOcurrencia | null>(null);
   const [tourToDelete, setTourToDelete] = useState<TourOcurrencia | null>(null);
@@ -194,12 +195,16 @@ export function ToursPage() {
   };
 
   const handleRegistrarCompra = async () => {
+    if (purchaseAmount <= 0) {
+      return;
+    }
     await createCompra({
       categoria: "logistica",
       descripcion: "Compra registrada manualmente",
-      monto: 10,
+      monto: purchaseAmount,
       fecha: new Date(),
     });
+    setPurchaseAmount(0);
   };
 
   return (
@@ -246,7 +251,13 @@ export function ToursPage() {
             onAmountChange={setPaymentAmount}
             onSubmit={() => void handleRegistrarPago()}
           />
-          <ComprasPanel comprasCount={compras.length} isSubmitting={isSubmittingCompra} onSubmit={() => void handleRegistrarCompra()} />
+          <ComprasPanel
+            comprasCount={compras.length}
+            amount={purchaseAmount}
+            isSubmitting={isSubmittingCompra}
+            onAmountChange={setPurchaseAmount}
+            onSubmit={() => void handleRegistrarCompra()}
+          />
         </div>
       ) : null}
       <Modal

@@ -79,6 +79,10 @@ async function awaitTokenWithRoleClaim(user: User, expectedRole: UserRole): Prom
     }
     await delay(CLAIM_WAIT_DELAY_MS);
   }
+  const finalTokenResult = await user.getIdTokenResult(true);
+  if (finalTokenResult.claims.rol === expectedRole) {
+    return;
+  }
   throw new Error(
     "Tu sesión aún no tiene los permisos asignados, intenta iniciar sesión de nuevo en unos segundos.",
   );
