@@ -149,6 +149,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /terrenos/{itemId} {
+      allow read: if isActiveUser();
+      allow write: if isAdmin();
+    }
+
     match /notificaciones/{notifId} {
       allow read: if isAdmin() || (isGuia() && resource.data.tourId != null && exists(tourDocPath(resource.data.tourId)) && isTourAssignedToGuia(get(tourDocPath(resource.data.tourId)).data));
       allow write: if isAdmin();

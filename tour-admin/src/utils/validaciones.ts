@@ -77,25 +77,33 @@ export const transporteFormSchema = z.object({
 });
 export type TransporteFormValues = z.infer<typeof transporteFormSchema>;
 
+const optionalNonNegativeNumber = z.preprocess((val) => {
+  if (val === "" || val === undefined || val === null) {
+    return undefined;
+  }
+  const n = Number(val);
+  return Number.isNaN(n) ? undefined : n;
+}, z.number().min(0).optional());
+
+export const tourDificultadValues = ["muy_facil", "facil", "moderado", "dificil", "muy_dificil"] as const;
+export type TourDificultadValue = (typeof tourDificultadValues)[number];
+
+const tourDificultadStrings: readonly string[] = tourDificultadValues;
+
 export const plantillaFormSchema = z.object({
   nombre: z.string().min(1, "Nombre requerido"),
   descripcion: z.string().min(1, "Descripción requerida"),
-  dificultad: z.string().min(1, "Dificultad requerida"),
+  dificultad: z
+    .string()
+    .min(1, "Dificultad requerida")
+    .refine((value: string) => tourDificultadStrings.includes(value), {
+      message: "Dificultad inválida",
+    }),
   dificultadId: z.string().optional(),
-  distanciaKm: z.preprocess((val) => {
-    if (val === "" || val === undefined || val === null) {
-      return undefined;
-    }
-    const n = Number(val);
-    return Number.isNaN(n) ? undefined : n;
-  }, z.number().min(0).optional()),
-  elevacionM: z.preprocess((val) => {
-    if (val === "" || val === undefined || val === null) {
-      return undefined;
-    }
-    const n = Number(val);
-    return Number.isNaN(n) ? undefined : n;
-  }, z.number().min(0).optional()),
+  distanciaKm: optionalNonNegativeNumber,
+  elevacionM: optionalNonNegativeNumber,
+  alturaMaximaMsnm: optionalNonNegativeNumber,
+  terrenos: z.array(z.string().min(1)).default([]),
   wikiloc: z.string().optional(),
   equipoRecomendado: z.string().optional(),
   queLlevar: z.string().optional(),
@@ -106,6 +114,19 @@ export const plantillaFormSchema = z.object({
   activa: z.boolean(),
 });
 export type PlantillaFormValues = z.infer<typeof plantillaFormSchema>;
+
+export const terrenoFormSchema = z.object({
+  nombre: z.string().min(1, "Nombre requerido"),
+  descripcion: z.string().optional().default(""),
+  factor: z.preprocess((val) => {
+    if (val === "" || val === undefined || val === null) {
+      return undefined;
+    }
+    const n = Number(val);
+    return Number.isNaN(n) ? undefined : n;
+  }, z.number().min(1, "Factor mínimo 1.0").max(2, "Factor máximo 2.0")),
+});
+export type TerrenoFormValues = z.infer<typeof terrenoFormSchema>;
 
 export const tourFormSchema = z
   .object({

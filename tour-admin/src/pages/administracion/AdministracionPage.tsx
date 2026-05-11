@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CatalogCrudSection } from "./components/CatalogCrudSection";
+import { TerrenosCrudSection } from "./components/TerrenosCrudSection";
 import { UsersAdminSection } from "./components/UsersAdminSection";
 import { AuditoriaAdminSection } from "./components/AuditoriaAdminSection";
 import { useAdministracion } from "./hooks/useAdministracion";
@@ -15,7 +16,8 @@ type AdminTabId =
   | "metodosPago"
   | "dificultadesPlantilla"
   | "estadosGuia"
-  | "nivelesExperiencia";
+  | "nivelesExperiencia"
+  | "terrenos";
 
 interface AdminTab {
   id: AdminTabId;
@@ -35,6 +37,7 @@ const tabs: AdminTab[] = [
   { id: "dificultadesPlantilla", label: "Dificultad de plantilla" },
   { id: "estadosGuia", label: "Estado de guía" },
   { id: "nivelesExperiencia", label: "Nivel de experiencia" },
+  { id: "terrenos", label: "Terrenos" },
 ];
 
 export function AdministracionPage() {
@@ -151,15 +154,27 @@ export function AdministracionPage() {
         />
       );
     }
+    if (activeTab === "nivelesExperiencia") {
+      return (
+        <CatalogCrudSection
+          title="Nivel de experiencia de vago"
+          items={adminState.nivelesExperiencia.items}
+          isSubmitting={adminState.isSubmitting}
+          onCreate={adminState.nivelesExperiencia.create}
+          onUpdate={adminState.nivelesExperiencia.update}
+          onDeactivate={adminState.nivelesExperiencia.deactivate}
+        />
+      );
+    }
 
     return (
-      <CatalogCrudSection
-        title="Nivel de experiencia de vago"
-        items={adminState.nivelesExperiencia.items}
+      <TerrenosCrudSection
+        title="Terrenos"
+        items={adminState.terrenos.items}
         isSubmitting={adminState.isSubmitting}
-        onCreate={adminState.nivelesExperiencia.create}
-        onUpdate={adminState.nivelesExperiencia.update}
-        onDeactivate={adminState.nivelesExperiencia.deactivate}
+        onCreate={adminState.terrenos.create}
+        onUpdate={adminState.terrenos.update}
+        onDeactivate={adminState.terrenos.deactivate}
       />
     );
   }, [activeTab, adminState]);

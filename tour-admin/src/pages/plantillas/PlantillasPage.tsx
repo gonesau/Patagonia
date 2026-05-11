@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useForm, type Resolver } from "react-hook-form";
+import { useEffect, useMemo, useState } from "react";
+import { useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -11,6 +11,7 @@ import { TableActions } from "@/components/ui/TableActions";
 import { useAuth } from "@/hooks/useAuth";
 import { dificultadesPlantillaService } from "@/services/dificultadesPlantillaService";
 import { plantillasService } from "@/services/plantillasService";
+import { terrenosService } from "@/services/terrenosService";
 import { toursService } from "@/services/toursService";
 import { calculateTourMargin } from "@/utils/financiero.utils";
 import { pagosService } from "@/services/pagosService";
@@ -18,8 +19,10 @@ import { comprasService } from "@/services/comprasService";
 import { inscripcionesService } from "@/services/inscripcionesService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
 import { plantillaFormSchema, type PlantillaFormValues } from "@/utils/validaciones";
+import { calcularDificultadSugerida, obtenerEtiquetaDificultad } from "@/utils/dificultad";
 import type { DificultadPlantilla } from "@/types/dificultadPlantilla.types";
-import type { TourPlantilla } from "@/types/tour.types";
+import type { Terreno } from "@/types/terreno.types";
+import type { TourDificultad, TourPlantilla } from "@/types/tour.types";
 
 const defaultValues: PlantillaFormValues = {
   nombre: "",
@@ -28,6 +31,8 @@ const defaultValues: PlantillaFormValues = {
   dificultadId: "",
   distanciaKm: undefined,
   elevacionM: undefined,
+  alturaMaximaMsnm: undefined,
+  terrenos: [],
   wikiloc: "",
   equipoRecomendado: "",
   queLlevar: "",
@@ -44,6 +49,7 @@ export function PlantillasPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [dificultades, setDificultades] = useState<DificultadPlantilla[]>([]);
+  const [terrenos, setTerrenos] = useState<Terreno[]>([]);
   const [selectedPlantilla, setSelectedPlantilla] = useState<TourPlantilla | null>(null);
   const [plantillaToDelete, setPlantillaToDelete] = useState<TourPlantilla | null>(null);
   const [historialPlantilla, setHistorialPlantilla] = useState<TourPlantilla | null>(null);
@@ -68,9 +74,48 @@ export function PlantillasPage() {
 
   useEffect(() => {
     void (async () => {
-      await Promise.all([loadPlantillas(), dificultadesPlantillaService.listActive().then(setDificultades)]);
+      await Promise.all([
+        loadPlantillas(),
+        dificultadesPlantillaService.listActive().then(setDificultades),
+        terrenosService.listActive().then(setTerrenos),
+      ]);
     })();
   }, []);
+
+  const factoresPorTerrenoId = useMemo(
+    () => Object.fromEntries(terrenos.map((terreno) => [terreno.id, terreno.factor])),
+    [terrenos],
+  );
+
+  const camposCalculo = useWatch({
+    control: form.control,
+    name: ["distanciaKm", "elevacionM", "alturaMaximaMsnm", "terrenos"],
+  });
+  const [watchedDistanciaKm, watchedElevacionM, watchedAlturaMaxima, watchedTerrenos] = camposCalculo;
+
+  const sugerenciaDificultad = useMemo(
+    () =>
+      calcularDificultadSugerida(
+        {
+          distanciaKm: watchedDistanciaKm,
+          elevacionM: watchedElevacionM,
+          alturaMaximaMsnm: watchedAlturaMaxima,
+          terrenos: watchedTerrenos ?? [],
+        },
+        factoresPorTerrenoId,
+      ),
+    [watchedDistanciaKm, watchedElevacionM, watchedAlturaMaxima, watchedTerrenos, factoresPorTerrenoId],
+  );
+
+  const obtenerIdDificultad = (clave: TourDificultad): string => {
+    const match = dificultades.find((item) => item.nombre === clave);
+    return match?.id ?? "";
+  };
+
+  const aplicarSugerencia = () => {
+    form.setValue("dificultad", sugerenciaDificultad.dificultad, { shouldDirty: true, shouldValidate: true });
+    form.setValue("dificultadId", obtenerIdDificultad(sugerenciaDificultad.dificultad), { shouldDirty: true });
+  };
 
   const openCreateModal = () => {
     setSelectedPlantilla(null);
@@ -89,6 +134,8 @@ export function PlantillasPage() {
       dificultadId: plantilla.dificultadId ?? "",
       distanciaKm: plantilla.distanciaKm,
       elevacionM: plantilla.elevacionM,
+      alturaMaximaMsnm: plantilla.alturaMaximaMsnm,
+      terrenos: plantilla.terrenos ?? [],
       wikiloc: plantilla.wikiloc ?? "",
       equipoRecomendado: plantilla.equipoRecomendado ?? "",
       queLlevar: plantilla.queLlevar ?? "",
@@ -111,12 +158,21 @@ export function PlantillasPage() {
     try {
       setErrorMessage(null);
       setSuccessMessage(null);
+      const dificultadSeleccionada = values.dificultad as TourDificultad;
+      const dificultadIdSincronizado = values.dificultadId || obtenerIdDificultad(dificultadSeleccionada);
+      const payload = {
+        ...values,
+        dificultad: dificultadSeleccionada,
+        dificultadId: dificultadIdSincronizado,
+        puntajeDificultad: sugerenciaDificultad.puntaje,
+        dificultadCalculada: sugerenciaDificultad.dificultad,
+      };
       if (selectedPlantilla) {
-        await plantillasService.update(selectedPlantilla.id, values);
+        await plantillasService.update(selectedPlantilla.id, payload);
         setSuccessMessage("Plantilla actualizada exitosamente.");
       } else {
         await plantillasService.create({
-          ...values,
+          ...payload,
           creadoPor: profile?.id ?? "sistema",
         });
         setSuccessMessage("Plantilla registrada exitosamente.");
@@ -189,12 +245,17 @@ export function PlantillasPage() {
         {successMessage ? <p className="mb-3 text-sm text-success">{successMessage}</p> : null}
         <Table
           emptyMessage="No hay plantillas registradas."
-          headers={["Nombre", "Dificultad", "Precio base", "Estado", "Acciones"]}
+          headers={["Nombre", "Dificultad", "Puntaje", "Precio base", "Estado", "Acciones"]}
           rows={plantillas.map((item) => ({
             key: item.id,
             cells: [
               item.nombre,
-              item.dificultad,
+              item.dificultad
+                ? `${obtenerEtiquetaDificultad(item.dificultad as TourDificultad)}${
+                    item.dificultadCalculada && item.dificultadCalculada !== item.dificultad ? " *" : ""
+                  }`
+                : "—",
+              item.puntajeDificultad !== undefined ? item.puntajeDificultad.toFixed(2) : "—",
               `$${item.precioBase.toFixed(2)}`,
               item.activa ? "Activa" : "Inactiva",
               <div key={`act-${item.id}`} className="flex flex-wrap gap-2">
@@ -223,35 +284,103 @@ export function PlantillasPage() {
             ) : null}
           </label>
           <div className="grid gap-3 md:grid-cols-2">
-            <label className="flex flex-col gap-1 text-sm">
-              <span>Dificultad</span>
-              <select className="rounded-md border border-border px-3 py-2" {...form.register("dificultad")}>
-                <option value="">Selecciona dificultad</option>
-                {dificultades.map((item) => (
-                  <option key={item.id} value={item.nombre}>
-                    {item.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <Input
+              label="Distancia (km)"
+              type="number"
+              step="0.1"
+              {...form.register("distanciaKm", { valueAsNumber: true })}
+              error={form.formState.errors.distanciaKm?.message}
+            />
+            <Input
+              label="Elevación acumulada (m)"
+              type="number"
+              {...form.register("elevacionM", { valueAsNumber: true })}
+              error={form.formState.errors.elevacionM?.message}
+            />
+            <Input
+              label="Altura máxima (msnm)"
+              type="number"
+              {...form.register("alturaMaximaMsnm", { valueAsNumber: true })}
+              error={form.formState.errors.alturaMaximaMsnm?.message}
+            />
             <Input
               label="Precio base"
               type="number"
               {...form.register("precioBase", { valueAsNumber: true })}
               error={form.formState.errors.precioBase?.message}
             />
-            <Input
-              label="Distancia (km)"
-              type="number"
-              {...form.register("distanciaKm", { valueAsNumber: true })}
-              error={form.formState.errors.distanciaKm?.message}
-            />
-            <Input
-              label="Elevación (m)"
-              type="number"
-              {...form.register("elevacionM", { valueAsNumber: true })}
-              error={form.formState.errors.elevacionM?.message}
-            />
+            <fieldset className="md:col-span-2 rounded-md border border-border p-3">
+              <legend className="px-1 text-sm font-medium text-textDark">Tipo de terreno</legend>
+              <p className="mb-2 text-xs text-neutral">
+                Selecciona uno o varios terrenos; el sistema utilizará el factor más exigente para calcular la dificultad.
+              </p>
+              {terrenos.length === 0 ? (
+                <p className="text-xs text-neutral">No hay terrenos activos en el catálogo. Configúralos en Administración.</p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {terrenos.map((terreno) => (
+                    <label key={terreno.id} className="flex items-start gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        value={terreno.id}
+                        className="mt-1"
+                        {...form.register("terrenos")}
+                      />
+                      <span>
+                        <span className="font-medium">{terreno.nombre}</span>
+                        <span className="ml-1 text-xs text-neutral">(factor {terreno.factor.toFixed(1)})</span>
+                        {terreno.descripcion ? (
+                          <span className="block text-xs text-neutral">{terreno.descripcion}</span>
+                        ) : null}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </fieldset>
+            <div className="md:col-span-2 rounded-md border border-dashed border-primary/40 bg-primary/5 p-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-neutral">Clasificación sugerida automática</p>
+                  <p className="font-medium text-textDark">
+                    {obtenerEtiquetaDificultad(sugerenciaDificultad.dificultad)}{" "}
+                    <span className="text-xs text-neutral">(clave: {sugerenciaDificultad.dificultad})</span>
+                  </p>
+                  <p className="text-xs text-neutral">
+                    Puntaje: {sugerenciaDificultad.puntaje} · Factor terreno: {sugerenciaDificultad.factorTerrenoMax.toFixed(1)} · Bono altitud: +{sugerenciaDificultad.bonoAltitud}
+                  </p>
+                </div>
+                <Button type="button" variant="ghost" onClick={aplicarSugerencia}>
+                  Aplicar sugerencia
+                </Button>
+              </div>
+            </div>
+            <label className="flex flex-col gap-1 text-sm md:col-span-2">
+              <span>Dificultad final</span>
+              <select
+                className="rounded-md border border-border px-3 py-2"
+                {...form.register("dificultad", {
+                  onChange: (event) => {
+                    const valor = event.target.value as TourDificultad | "";
+                    if (valor === "") {
+                      form.setValue("dificultadId", "", { shouldDirty: true });
+                      return;
+                    }
+                    form.setValue("dificultadId", obtenerIdDificultad(valor), { shouldDirty: true });
+                  },
+                })}
+              >
+                <option value="">Selecciona dificultad</option>
+                {dificultades.map((item) => (
+                  <option key={item.id} value={item.nombre}>
+                    {obtenerEtiquetaDificultad(item.nombre as TourDificultad)} ({item.nombre})
+                  </option>
+                ))}
+              </select>
+              {form.formState.errors.dificultad?.message ? (
+                <span className="text-danger">{form.formState.errors.dificultad.message}</span>
+              ) : null}
+            </label>
             <Input label="Wikiloc (URL)" {...form.register("wikiloc")} />
             <label className="flex flex-col gap-1 text-sm md:col-span-2">
               <span>Equipo recomendado</span>

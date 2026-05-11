@@ -8,6 +8,7 @@ import type { Guia } from "@/types/guia.types";
 import type { MetodoPagoCatalogo } from "@/types/metodoPago.types";
 import type { NivelExperiencia } from "@/types/nivelExperiencia.types";
 import type { RelacionEmergencia } from "@/types/relacionEmergencia.types";
+import type { Terreno } from "@/types/terreno.types";
 import type { TipoVehiculo } from "@/types/tipoVehiculo.types";
 import type { UserRole, UsuarioSistema } from "@/types/usuario.types";
 import { categoriasCompraService } from "@/services/categoriasCompraService";
@@ -18,6 +19,7 @@ import { guiasService } from "@/services/guiasService";
 import { metodosPagoService } from "@/services/metodosPagoService";
 import { nivelesExperienciaService } from "@/services/nivelesExperienciaService";
 import { relacionesEmergenciaService } from "@/services/relacionesEmergenciaService";
+import { terrenosService } from "@/services/terrenosService";
 import { tiposVehiculoService } from "@/services/tiposVehiculoService";
 import { userProvisioningService } from "@/services/userProvisioningService";
 import { usuariosSistemaService } from "@/services/usuariosSistemaService";
@@ -27,6 +29,16 @@ interface CatalogState<T extends CatalogItem> {
   items: T[];
   create: (data: Pick<T, "nombre" | "descripcion">) => Promise<void>;
   update: (id: string, data: Partial<Pick<T, "nombre" | "descripcion" | "activo">>) => Promise<void>;
+  deactivate: (id: string) => Promise<void>;
+}
+
+interface TerrenosCatalogState {
+  items: Terreno[];
+  create: (data: Pick<Terreno, "nombre" | "descripcion" | "factor">) => Promise<void>;
+  update: (
+    id: string,
+    data: Partial<Pick<Terreno, "nombre" | "descripcion" | "activo" | "factor">>,
+  ) => Promise<void>;
   deactivate: (id: string) => Promise<void>;
 }
 
@@ -41,6 +53,7 @@ interface AdministracionState {
   dificultadesPlantilla: CatalogState<DificultadPlantilla>;
   estadosGuia: CatalogState<EstadoGuia>;
   nivelesExperiencia: CatalogState<NivelExperiencia>;
+  terrenos: TerrenosCatalogState;
   isSubmitting: boolean;
   errorMessage: string | null;
   reload: () => Promise<void>;
@@ -66,6 +79,7 @@ export function useAdministracion(): AdministracionState {
   const [dificultadesPlantillaItems, setDificultadesPlantillaItems] = useState<DificultadPlantilla[]>([]);
   const [estadosGuiaItems, setEstadosGuiaItems] = useState<EstadoGuia[]>([]);
   const [nivelesExperienciaItems, setNivelesExperienciaItems] = useState<NivelExperiencia[]>([]);
+  const [terrenosItems, setTerrenosItems] = useState<Terreno[]>([]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -81,6 +95,7 @@ export function useAdministracion(): AdministracionState {
       dificultadesPlantillaData,
       estadosGuiaData,
       nivelesExperienciaData,
+      terrenosData,
     ] = await Promise.all([
       usuariosSistemaService.listAll(),
       guiasService.list(),
@@ -92,6 +107,7 @@ export function useAdministracion(): AdministracionState {
       dificultadesPlantillaService.listAll(),
       estadosGuiaService.listAll(),
       nivelesExperienciaService.listAll(),
+      terrenosService.listAll(),
     ]);
     setUsers(usersData);
     setGuias(guiasData);
@@ -103,6 +119,7 @@ export function useAdministracion(): AdministracionState {
     setDificultadesPlantillaItems(dificultadesPlantillaData);
     setEstadosGuiaItems(estadosGuiaData);
     setNivelesExperienciaItems(nivelesExperienciaData);
+    setTerrenosItems(terrenosData);
   }, []);
 
   useEffect(() => {
@@ -174,6 +191,19 @@ export function useAdministracion(): AdministracionState {
     },
   });
 
+  const terrenosState: TerrenosCatalogState = {
+    items: terrenosItems,
+    create: async (data) => {
+      await wrapMutation(async () => terrenosService.create(data));
+    },
+    update: async (id, data) => {
+      await wrapMutation(async () => terrenosService.update(id, data));
+    },
+    deactivate: async (id) => {
+      await wrapMutation(async () => terrenosService.remove(id));
+    },
+  };
+
   return {
     users,
     guias,
@@ -195,6 +225,7 @@ export function useAdministracion(): AdministracionState {
       nivelesExperienciaService.update,
       nivelesExperienciaService.remove,
     ),
+    terrenos: terrenosState,
     isSubmitting,
     errorMessage,
     reload,

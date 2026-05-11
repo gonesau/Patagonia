@@ -1,11 +1,22 @@
+export type TourDificultad =
+  | "muy_facil"
+  | "facil"
+  | "moderado"
+  | "dificil"
+  | "muy_dificil";
+
 export interface TourPlantilla {
   id: string;
   nombre: string;
   descripcion: string;
   distanciaKm?: number;
   elevacionM?: number;
+  alturaMaximaMsnm?: number;
+  terrenos?: string[];
+  puntajeDificultad?: number;
+  dificultadCalculada?: TourDificultad;
   dificultadId?: string;
-  dificultad: string;
+  dificultad: TourDificultad | "";
   wikiloc?: string;
   equipoRecomendado?: string;
   queLlevar?: string;
