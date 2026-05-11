@@ -17,6 +17,7 @@ import { tourFormSchema, type TourFormValues } from "@/utils/validaciones";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
 import { findGuiaIdsWithTourConflict, plantillaSnapshotForTour } from "@/utils/tourScheduling.utils";
 import type { TourOcurrencia } from "@/types/tour.types";
+import { getEstadoTour } from "@/types/estadoTour.types";
 import type { Transporte } from "@/types/transporte.types";
 import { TourListPanel } from "./components/TourListPanel";
 import { TourOperacionesPanel } from "./components/TourOperacionesPanel";
@@ -30,7 +31,6 @@ import { configuracionService } from "@/services/configuracionService";
 const defaultValues: TourFormValues = {
   plantillaId: "",
   nombre: "",
-  estado: "borrador",
   guiaId: "",
   guiaIds: [],
   fechaInicio: "",
@@ -82,7 +82,6 @@ export function ToursPage() {
     vagos,
     inscripciones,
     pagos,
-    estadosTourCatalog,
     metodosPagoCatalog,
     selectedTourId,
     paymentInscripcionId,
@@ -219,7 +218,6 @@ export function ToursPage() {
       ...defaultValues,
       plantillaId: tour.plantillaId,
       nombre: tour.nombre,
-      estado: "borrador",
       guiaId: tour.guiaId,
       guiaIds: tour.guiaIds && tour.guiaIds.length > 0 ? tour.guiaIds : tour.guiaId ? [tour.guiaId] : [],
       fechaInicio: toLocalDateTimeString(start),
@@ -242,7 +240,6 @@ export function ToursPage() {
     form.reset({
       plantillaId: tour.plantillaId,
       nombre: tour.nombre,
-      estado: tour.estado,
       guiaId: tour.guiaId,
       guiaIds: tour.guiaIds && tour.guiaIds.length > 0 ? tour.guiaIds : tour.guiaId ? [tour.guiaId] : [],
       fechaInicio: toLocalDateTimeString(tour.fechaInicio),
@@ -275,6 +272,16 @@ export function ToursPage() {
       const { fechaInicio, fechaFin, ...rest } = values;
       const inicioDate = new Date(fechaInicio);
       const finDate = new Date(fechaFin);
+      const now = new Date();
+      const requiereTransporte =
+        selectedTourToEdit?.cancelado !== true && !Number.isNaN(finDate.getTime()) && finDate >= now;
+      if (requiereTransporte && (!values.transporteId || values.transporteId.trim().length === 0)) {
+        form.setError("transporteId", {
+          type: "manual",
+          message: "Debes asignar transporte para ocurrencias vigentes o futuras.",
+        });
+        return;
+      }
       const conflictIds = await findGuiaIdsWithTourConflict(inicioDate, values.guiaIds, selectedTourToEdit?.id);
       if (conflictIds.length > 0) {
         const ok = window.confirm(
@@ -312,7 +319,6 @@ export function ToursPage() {
       const normalizedValues = {
         ...rest,
         ...snapshot,
-        estadoId: estadosTourCatalog.find((item) => item.nombre === values.estado)?.id,
         guiaId: values.guiaIds[0] ?? values.guiaId ?? "",
         guiaIds: values.guiaIds,
         cupoMaximo: Number(values.cupoMaximo),
@@ -359,6 +365,23 @@ export function ToursPage() {
       });
       setTourToDelete(null);
       setSuccessMessage("Tour eliminado del listado operativo.");
+      await reloadTours();
+    } catch (error) {
+      setErrorMessage(toServiceErrorMessage(error));
+    }
+  };
+
+  const handleCancelTour = async (tour: TourOcurrencia) => {
+    if (!isAdmin) return;
+    try {
+      setErrorMessage(null);
+      if (tour.cancelado) {
+        await toursService.uncancelTour(tour.id);
+        setSuccessMessage(`Tour "${tour.nombre}" reactivado. El estado se recalculará según fechas.`);
+      } else {
+        await toursService.cancelTour(tour.id);
+        setSuccessMessage(`Tour "${tour.nombre}" cancelado exitosamente.`);
+      }
       await reloadTours();
     } catch (error) {
       setErrorMessage(toServiceErrorMessage(error));
@@ -586,14 +609,29 @@ export function ToursPage() {
             </label>
             <label className="flex flex-col gap-1 text-sm">
               <span>Estado</span>
-              <select className="rounded-md border border-border px-3 py-2" {...form.register("estado")}>
-                <option value="">Selecciona estado</option>
-                {estadosTourCatalog.map((item) => (
-                  <option key={item.id} value={item.nombre}>
-                    {item.nombre}
-                  </option>
-                ))}
-              </select>
+              {selectedTourToEdit ? (
+                <div className="flex items-center gap-3 rounded-md border border-border bg-slate-50 px-3 py-2">
+                  <span className="flex-1 text-sm text-textDark">
+                    El estado no se edita aquí: es Programado (aún no inicia), En curso (entre inicio y fin), Realizado
+                    (ya pasó la fecha de fin) o Cancelado (marcado manualmente).{" "}
+                    {selectedTourToEdit.cancelado
+                      ? "Este tour está cancelado."
+                      : `Estado actual: ${getEstadoTour(selectedTourToEdit.estado).nombre}.`}
+                  </span>
+                  <Button
+                    type="button"
+                    variant={selectedTourToEdit.cancelado ? "ghost" : "danger"}
+                    onClick={() => void handleCancelTour(selectedTourToEdit)}
+                  >
+                    {selectedTourToEdit.cancelado ? "Revertir cancelación" : "Cancelar tour"}
+                  </Button>
+                </div>
+              ) : (
+                <p className="rounded-md border border-border bg-slate-50 px-3 py-2 text-sm text-neutral">
+                  Al guardar, el estado será Programado, En curso o Realizado según la fecha y hora actuales
+                  respecto al inicio y fin del tour. Cancelado solo si cancelás el tour después.
+                </p>
+              )}
             </label>
             <Input label="Punto de encuentro" {...form.register("puntoEncuentro")} error={form.formState.errors.puntoEncuentro?.message} />
             <Input

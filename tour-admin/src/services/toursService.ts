@@ -19,7 +19,29 @@ import { db } from "./firebase";
 import { timestampToDate } from "./firestoreMappers";
 import { DEFAULT_PAGE_SIZE, type PaginatedResult, type PaginationParams } from "./pagination";
 
+import type { EstadoTourId } from "@/types/estadoTour.types";
+
 const toursCollection = collection(db, "tours");
+
+/**
+ * Calcula el estado operativo de un tour en tiempo de lectura.
+ * Prioridad: cancelado manual → en_curso → realizado → programado.
+ */
+function calcularEstadoTour(tour: TourOcurrencia): EstadoTourId {
+  if (tour.cancelado === true) {
+    return "cancelado";
+  }
+  const now = new Date();
+  const inicio = new Date(tour.fechaInicio);
+  const fin = new Date(tour.fechaFin);
+  if (inicio <= now && now <= fin) {
+    return "en_curso";
+  }
+  if (fin < now) {
+    return "realizado";
+  }
+  return "programado";
+}
 
 function normalizeTour(data: Record<string, unknown>, id: string): TourOcurrencia {
   const mappedData = timestampToDate(data) as unknown as TourOcurrencia;
@@ -30,12 +52,17 @@ function normalizeTour(data: Record<string, unknown>, id: string): TourOcurrenci
         ? [mappedData.guiaId]
         : [];
 
-  return {
+  const normalized: TourOcurrencia = {
     ...mappedData,
     id,
     guiaIds: normalizedGuideIds,
     guiaId: normalizedGuideIds[0] || mappedData.guiaId || "",
   };
+
+  // Estado calculado dinámicamente; sobrescribe cualquier valor guardado en Firestore.
+  normalized.estado = calcularEstadoTour(normalized);
+
+  return normalized;
 }
 
 function isVisibleTour(item: TourOcurrencia): boolean {
@@ -86,7 +113,7 @@ export const toursService = {
       .map((item) => normalizeTour(item.data() as Record<string, unknown>, item.id))
       .filter(isVisibleTour);
   },
-  async create(data: Omit<TourOcurrencia, "id" | "creadoEn" | "actualizadoEn">): Promise<void> {
+  async create(data: Omit<TourOcurrencia, "id" | "creadoEn" | "actualizadoEn" | "estado">): Promise<void> {
     const guiaIds = data.guiaIds?.filter((value) => value.length > 0) ?? (data.guiaId ? [data.guiaId] : []);
     await addDoc(toursCollection, {
       ...data,
@@ -96,7 +123,7 @@ export const toursService = {
       actualizadoEn: serverTimestamp(),
     });
   },
-  async update(tourId: string, data: Partial<TourOcurrencia>): Promise<void> {
+  async update(tourId: string, data: Partial<Omit<TourOcurrencia, "estado">>): Promise<void> {
     const guiaIds =
       data.guiaIds !== undefined
         ? data.guiaIds.filter((value) => value.length > 0)
@@ -144,5 +171,13 @@ export const toursService = {
       items,
       nextCursor: snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : undefined,
     };
+  },
+  /** Activa la bandera de cancelación manual. El estado calculado será `'cancelado'` en lecturas futuras. */
+  async cancelTour(tourId: string): Promise<void> {
+    await updateDoc(doc(db, "tours", tourId), { cancelado: true, actualizadoEn: serverTimestamp() });
+  },
+  /** Revierte la cancelación manual de un tour. El estado volverá a calcularse según fechas. */
+  async uncancelTour(tourId: string): Promise<void> {
+    await updateDoc(doc(db, "tours", tourId), { cancelado: false, actualizadoEn: serverTimestamp() });
   },
 };

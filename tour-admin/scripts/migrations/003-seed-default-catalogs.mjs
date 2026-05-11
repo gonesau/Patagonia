@@ -51,18 +51,6 @@ export async function seedDefaultCatalogs(dryRun = true) {
       [{ nombre: "activo" }, { nombre: "inactivo" }, { nombre: "suspendido" }],
       dryRun,
     ),
-    dificultadesPlantilla: await seedCollection(
-      db,
-      "dificultadesPlantilla",
-      [{ nombre: "muy_facil" }, { nombre: "facil" }, { nombre: "moderado" }, { nombre: "dificil" }, { nombre: "muy_dificil" }],
-      dryRun,
-    ),
-    estadosTour: await seedCollection(
-      db,
-      "estadosTour",
-      [{ nombre: "borrador" }, { nombre: "publicado" }, { nombre: "lleno" }, { nombre: "en_curso" }, { nombre: "realizado" }, { nombre: "cancelado" }],
-      dryRun,
-    ),
     metodosPago: await seedCollection(
       db,
       "metodosPago",

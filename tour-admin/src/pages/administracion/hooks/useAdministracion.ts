@@ -2,9 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import type { CatalogItem } from "@/types/catalog.types";
 import type { CategoriaCompra } from "@/types/categoriaCompra.types";
-import type { DificultadPlantilla } from "@/types/dificultadPlantilla.types";
 import type { EstadoGuia } from "@/types/estadoGuia.types";
-import type { EstadoTour } from "@/types/estadoTour.types";
+
 import type { Guia } from "@/types/guia.types";
 import type { MetodoPagoCatalogo } from "@/types/metodoPago.types";
 import type { NivelExperiencia } from "@/types/nivelExperiencia.types";
@@ -13,9 +12,8 @@ import type { Terreno } from "@/types/terreno.types";
 import type { TipoVehiculo } from "@/types/tipoVehiculo.types";
 import type { UserRole, UsuarioSistema } from "@/types/usuario.types";
 import { categoriasCompraService } from "@/services/categoriasCompraService";
-import { dificultadesPlantillaService } from "@/services/dificultadesPlantillaService";
 import { estadosGuiaService } from "@/services/estadosGuiaService";
-import { estadosTourService } from "@/services/estadosTourService";
+
 import { guiasService } from "@/services/guiasService";
 import { metodosPagoService } from "@/services/metodosPagoService";
 import { nivelesExperienciaService } from "@/services/nivelesExperienciaService";
@@ -51,9 +49,7 @@ interface AdministracionState {
   categoriasCompra: CatalogState<CategoriaCompra>;
   tiposVehiculo: CatalogState<TipoVehiculo>;
   relacionesEmergencia: CatalogState<RelacionEmergencia>;
-  estadosTour: CatalogState<EstadoTour>;
   metodosPago: CatalogState<MetodoPagoCatalogo>;
-  dificultadesPlantilla: CatalogState<DificultadPlantilla>;
   estadosGuia: CatalogState<EstadoGuia>;
   nivelesExperiencia: CatalogState<NivelExperiencia>;
   terrenos: TerrenosCatalogState;
@@ -86,9 +82,7 @@ export function useAdministracion(): AdministracionState {
   const [categoriasCompraItems, setCategoriasCompraItems] = useState<CategoriaCompra[]>([]);
   const [tiposVehiculoItems, setTiposVehiculoItems] = useState<TipoVehiculo[]>([]);
   const [relacionesEmergenciaItems, setRelacionesEmergenciaItems] = useState<RelacionEmergencia[]>([]);
-  const [estadosTourItems, setEstadosTourItems] = useState<EstadoTour[]>([]);
   const [metodosPagoItems, setMetodosPagoItems] = useState<MetodoPagoCatalogo[]>([]);
-  const [dificultadesPlantillaItems, setDificultadesPlantillaItems] = useState<DificultadPlantilla[]>([]);
   const [estadosGuiaItems, setEstadosGuiaItems] = useState<EstadoGuia[]>([]);
   const [nivelesExperienciaItems, setNivelesExperienciaItems] = useState<NivelExperiencia[]>([]);
   const [terrenosItems, setTerrenosItems] = useState<Terreno[]>([]);
@@ -102,9 +96,7 @@ export function useAdministracion(): AdministracionState {
       categoriasCompraData,
       tiposVehiculoData,
       relacionesEmergenciaData,
-      estadosTourData,
       metodosPagoData,
-      dificultadesPlantillaData,
       estadosGuiaData,
       nivelesExperienciaData,
       terrenosData,
@@ -114,9 +106,7 @@ export function useAdministracion(): AdministracionState {
       categoriasCompraService.listVisible(),
       tiposVehiculoService.listVisible(),
       relacionesEmergenciaService.listVisible(),
-      estadosTourService.listVisible(),
       metodosPagoService.listVisible(),
-      dificultadesPlantillaService.listVisible(),
       estadosGuiaService.listVisible(),
       nivelesExperienciaService.listVisible(),
       terrenosService.listVisible(),
@@ -126,9 +116,7 @@ export function useAdministracion(): AdministracionState {
     setCategoriasCompraItems(categoriasCompraData);
     setTiposVehiculoItems(tiposVehiculoData);
     setRelacionesEmergenciaItems(relacionesEmergenciaData);
-    setEstadosTourItems(estadosTourData);
     setMetodosPagoItems(metodosPagoData);
-    setDificultadesPlantillaItems(dificultadesPlantillaData);
     setEstadosGuiaItems(estadosGuiaData);
     setNivelesExperienciaItems(nivelesExperienciaData);
     setTerrenosItems(terrenosData);
@@ -250,23 +238,11 @@ export function useAdministracion(): AdministracionState {
       relacionesEmergenciaService.create,
       relacionesEmergenciaService.update,
     ),
-    estadosTour: createCatalogState(
-      estadosTourItems,
-      "estadosTour",
-      estadosTourService.create,
-      estadosTourService.update,
-    ),
     metodosPago: createCatalogState(
       metodosPagoItems,
       "metodosPago",
       metodosPagoService.create,
       metodosPagoService.update,
-    ),
-    dificultadesPlantilla: createCatalogState(
-      dificultadesPlantillaItems,
-      "dificultadesPlantilla",
-      dificultadesPlantillaService.create,
-      dificultadesPlantillaService.update,
     ),
     estadosGuia: createCatalogState(
       estadosGuiaItems,

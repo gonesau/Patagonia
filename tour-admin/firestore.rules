@@ -124,17 +124,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    match /estadosTour/{itemId} {
-      allow read: if isActiveUser();
-      allow write: if isAdmin();
-    }
-
     match /metodosPago/{itemId} {
-      allow read: if isActiveUser();
-      allow write: if isAdmin();
-    }
-
-    match /dificultadesPlantilla/{itemId} {
       allow read: if isActiveUser();
       allow write: if isAdmin();
     }

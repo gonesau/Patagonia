@@ -27,9 +27,7 @@ const ENTITY_OPTIONS: readonly EntityOption[] = [
   { collection: "categoriasCompra", label: "Categorías de compra" },
   { collection: "tiposVehiculo", label: "Tipos de vehículo" },
   { collection: "relacionesEmergencia", label: "Relaciones de emergencia" },
-  { collection: "estadosTour", label: "Estados de tour" },
   { collection: "metodosPago", label: "Métodos de pago" },
-  { collection: "dificultadesPlantilla", label: "Dificultades de plantilla" },
   { collection: "estadosGuia", label: "Estados de guía" },
   { collection: "nivelesExperiencia", label: "Niveles de experiencia" },
 ];

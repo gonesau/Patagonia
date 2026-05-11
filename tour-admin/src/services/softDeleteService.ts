@@ -28,9 +28,7 @@ export const SOFT_DELETE_FIELD = {
   categoriasCompra: "activo",
   tiposVehiculo: "activo",
   relacionesEmergencia: "activo",
-  estadosTour: "activo",
   metodosPago: "activo",
-  dificultadesPlantilla: "activo",
   estadosGuia: "activo",
   nivelesExperiencia: "activo",
 } as const;

@@ -12,9 +12,7 @@ type AdminTabId =
   | "categoriasCompra"
   | "tiposVehiculo"
   | "relacionesEmergencia"
-  | "estadosTour"
   | "metodosPago"
-  | "dificultadesPlantilla"
   | "estadosGuia"
   | "nivelesExperiencia"
   | "terrenos";
@@ -32,9 +30,7 @@ const tabs: AdminTab[] = [
   { id: "categoriasCompra", label: "Categorías de compra" },
   { id: "tiposVehiculo", label: "Tipos de vehículo" },
   { id: "relacionesEmergencia", label: "Relación de emergencia" },
-  { id: "estadosTour", label: "Estados de tour" },
   { id: "metodosPago", label: "Métodos de pago" },
-  { id: "dificultadesPlantilla", label: "Dificultad de plantilla" },
   { id: "estadosGuia", label: "Estado de guía" },
   { id: "nivelesExperiencia", label: "Nivel de experiencia" },
   { id: "terrenos", label: "Terrenos" },
@@ -107,18 +103,6 @@ export function AdministracionPage() {
         />
       );
     }
-    if (activeTab === "estadosTour") {
-      return (
-        <CatalogCrudSection
-          title="Estados de tour"
-          items={adminState.estadosTour.items}
-          isSubmitting={adminState.isSubmitting}
-          onCreate={adminState.estadosTour.create}
-          onUpdate={adminState.estadosTour.update}
-          onDeactivate={adminState.estadosTour.deactivate}
-        />
-      );
-    }
     if (activeTab === "metodosPago") {
       return (
         <CatalogCrudSection
@@ -128,18 +112,6 @@ export function AdministracionPage() {
           onCreate={adminState.metodosPago.create}
           onUpdate={adminState.metodosPago.update}
           onDeactivate={adminState.metodosPago.deactivate}
-        />
-      );
-    }
-    if (activeTab === "dificultadesPlantilla") {
-      return (
-        <CatalogCrudSection
-          title="Dificultad de plantilla"
-          items={adminState.dificultadesPlantilla.items}
-          isSubmitting={adminState.isSubmitting}
-          onCreate={adminState.dificultadesPlantilla.create}
-          onUpdate={adminState.dificultadesPlantilla.update}
-          onDeactivate={adminState.dificultadesPlantilla.deactivate}
         />
       );
     }

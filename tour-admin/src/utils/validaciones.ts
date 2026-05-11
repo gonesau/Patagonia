@@ -1,5 +1,8 @@
 import { z } from "zod";
+import { tourDificultadValues, type TourDificultadValue } from "./dificultad";
 import { normalizeDui, normalizePhone } from "./inputMasks";
+
+export { tourDificultadValues, type TourDificultadValue };
 
 const phoneSchema = z
   .string()
@@ -85,9 +88,6 @@ const optionalNonNegativeNumber = z.preprocess((val) => {
   return Number.isNaN(n) ? undefined : n;
 }, z.number().min(0).optional());
 
-export const tourDificultadValues = ["muy_facil", "facil", "moderado", "dificil", "muy_dificil"] as const;
-export type TourDificultadValue = (typeof tourDificultadValues)[number];
-
 const tourDificultadStrings: readonly string[] = tourDificultadValues;
 
 export const plantillaFormSchema = z.object({
@@ -132,8 +132,6 @@ export const tourFormSchema = z
   .object({
     plantillaId: z.string().min(1, "Plantilla requerida"),
     nombre: z.string().min(1, "Nombre requerido"),
-    estado: z.string().min(1, "Estado requerido"),
-    estadoId: z.string().optional(),
     guiaId: z.string().optional(),
     guiaIds: z.array(z.string().min(1)).min(1, "Selecciona al menos un guía"),
     fechaInicio: z.string().min(1, "Fecha de inicio requerida"),
@@ -159,15 +157,6 @@ export const tourFormSchema = z
         path: ["fechaFin"],
         message: "La fecha de fin debe ser igual o posterior a la fecha de inicio.",
       });
-    }
-    if (values.estado === "publicado") {
-      if (!values.transporteId || values.transporteId.trim().length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["transporteId"],
-          message: "Debes asignar transporte para publicar la ocurrencia.",
-        });
-      }
     }
   });
 export type TourFormValues = z.infer<typeof tourFormSchema>;

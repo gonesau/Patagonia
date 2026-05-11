@@ -6,7 +6,6 @@ import { guiasService } from "@/services/guiasService";
 import { vagosService } from "@/services/vagosService";
 import { inscripcionesService } from "@/services/inscripcionesService";
 import { pagosService } from "@/services/pagosService";
-import { estadosTourService } from "@/services/estadosTourService";
 import { metodosPagoService } from "@/services/metodosPagoService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
 import type { TourOcurrencia, TourPlantilla } from "@/types/tour.types";
@@ -14,7 +13,6 @@ import type { Guia } from "@/types/guia.types";
 import type { Vago } from "@/types/vago.types";
 import type { Inscripcion } from "@/types/inscripcion.types";
 import type { Pago } from "@/types/pago.types";
-import type { EstadoTour } from "@/types/estadoTour.types";
 import type { MetodoPagoCatalogo } from "@/types/metodoPago.types";
 import type { UsuarioSistema } from "@/types/usuario.types";
 
@@ -27,7 +25,6 @@ interface UseToursPageStateResult {
   vagos: Vago[];
   inscripciones: Inscripcion[];
   pagos: Pago[];
-  estadosTourCatalog: EstadoTour[];
   metodosPagoCatalog: MetodoPagoCatalogo[];
   selectedTourId: string;
   paymentInscripcionId: string;
@@ -60,7 +57,6 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
   const [vagos, setVagos] = useState<Vago[]>([]);
   const [inscripciones, setInscripciones] = useState<Inscripcion[]>([]);
   const [pagos, setPagos] = useState<Pago[]>([]);
-  const [estadosTourCatalog, setEstadosTourCatalog] = useState<EstadoTour[]>([]);
   const [metodosPagoCatalog, setMetodosPagoCatalog] = useState<MetodoPagoCatalogo[]>([]);
   const [selectedTourId, setSelectedTourId] = useState<string>("");
   const [paymentInscripcionId, setPaymentInscripcionId] = useState<string>("");
@@ -73,14 +69,10 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
 
   const loadCatalogs = useCallback(async () => {
     if (profile?.rol === "guia") {
-      const [tourStatesData, paymentMethodsData] = await Promise.all([
-        estadosTourService.listActive(),
-        metodosPagoService.listActive(),
-      ]);
+      const paymentMethodsData = await metodosPagoService.listActive();
       setPlantillas([]);
       setGuias([]);
       setVagos([]);
-      setEstadosTourCatalog(tourStatesData);
       setMetodosPagoCatalog(paymentMethodsData);
       return;
     }
@@ -92,11 +84,7 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
     setPlantillas(plantillasData.items.filter((item) => item.activa));
     setGuias(guiasData.items.filter((item) => item.estado === "activo"));
     setVagos(vagosData.items.filter((item) => item.activo));
-    const [tourStatesData, paymentMethodsData] = await Promise.all([
-      estadosTourService.listActive(),
-      metodosPagoService.listActive(),
-    ]);
-    setEstadosTourCatalog(tourStatesData);
+    const paymentMethodsData = await metodosPagoService.listActive();
     setMetodosPagoCatalog(paymentMethodsData);
   }, [profile?.rol]);
 
@@ -251,7 +239,6 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
     vagos,
     inscripciones,
     pagos,
-    estadosTourCatalog,
     metodosPagoCatalog,
     selectedTourId,
     paymentInscripcionId,

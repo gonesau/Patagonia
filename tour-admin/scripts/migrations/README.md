@@ -29,6 +29,6 @@ node scripts/migrations/run-migrations.mjs
 2. `002-backfill-catalog-references.mjs`
    - Backfill de referencias de catálogo en `vagos`, `transporte`, `guias`, `tour_plantillas`, `tours`, `pagos`.
 3. `003-seed-default-catalogs.mjs`
-   - Si no existen registros, crea catálogos base para operación.
+   - Si no existen registros, crea catálogos base para operación (sin `dificultadesPlantilla`: la dificultad de plantilla es un catálogo fijo de cuatro niveles en la app: `facil`, `moderado`, `dificil`, `extremo`). La colección `estadosTour` no se siembra; el estado de cada tour se calcula en lectura.
 4. `004-seed-terrenos.mjs`
    - Si la colección `terrenos` está vacía, siembra los 7 terrenos estandarizados (`pavimento`, `tierra compacta`, `bosque con raíces`, `piedra suelta`, `lodo / arcilla`, `ceniza volcánica`, `roca / trepada técnica`) con sus factores oficiales (1.0 a 1.5). Necesario para que el algoritmo de clasificación automática de dificultad de plantillas opere correctamente.

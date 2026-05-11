@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Table } from "@/components/ui/Table";
 import { TableActions } from "@/components/ui/TableActions";
 import type { TourOcurrencia } from "@/types/tour.types";
+import { getEstadoTour } from "@/types/estadoTour.types";
 
 interface TourListPanelProps {
   tours: TourOcurrencia[];
@@ -53,7 +54,17 @@ export function TourListPanel({
             >
               {tour.nombre}
             </button>,
-            tour.estado,
+            (() => {
+              const estado = getEstadoTour(tour.estado);
+              return (
+                <span
+                  key={`estado-${tour.id}`}
+                  className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${estado.color}`}
+                >
+                  {estado.nombre}
+                </span>
+              );
+            })(),
             `${tour.cupoMinimo}-${tour.cupoMaximo}`,
             `$${tour.precioVenta.toFixed(2)}`,
             isAdmin ? (

@@ -1,5 +1,17 @@
 import type { TourDificultad } from "@/types/tour.types";
 
+/** Claves internas de dificultad de plantilla (catálogo fijo en aplicación). */
+export const tourDificultadValues = ["facil", "moderado", "dificil", "extremo"] as const;
+export type TourDificultadValue = (typeof tourDificultadValues)[number];
+
+/** Opciones del desplegable de plantillas (sin Firestore). */
+export const OPCIONES_DIFICULTAD_PLANTILLA: readonly { clave: TourDificultad; etiqueta: string }[] = [
+  { clave: "facil", etiqueta: "Fácil" },
+  { clave: "moderado", etiqueta: "Moderado" },
+  { clave: "dificil", etiqueta: "Difícil" },
+  { clave: "extremo", etiqueta: "Extremo" },
+];
+
 const DEFAULT_FACTOR_TERRENO = 1.0;
 const PESO_DESNIVEL_POR_100M = 1.5;
 const UMBRAL_ALTITUD_INTERMEDIA_MSNM = 2500;
@@ -73,11 +85,9 @@ function calcularBonoAltitud(alturaMaximaMsnm: number): number {
   return 0;
 }
 
+/** Umbrales alineados con la antigua escala de 5 niveles agrupada en 4. */
 function mapearPuntajeADificultad(puntaje: number): TourDificultad {
-  if (puntaje < 10) {
-    return "muy_facil";
-  }
-  if (puntaje <= 20) {
+  if (puntaje < 20) {
     return "facil";
   }
   if (puntaje <= 35) {
@@ -86,7 +96,7 @@ function mapearPuntajeADificultad(puntaje: number): TourDificultad {
   if (puntaje <= 55) {
     return "dificil";
   }
-  return "muy_dificil";
+  return "extremo";
 }
 
 /**
@@ -121,13 +131,67 @@ export function calcularDificultadSugerida(
 }
 
 const DIFICULTAD_LABELS: Record<TourDificultad, string> = {
-  muy_facil: "Principiante",
   facil: "Fácil",
   moderado: "Moderado",
   dificil: "Difícil",
-  muy_dificil: "Extremo",
+  extremo: "Extremo",
 };
 
 export function obtenerEtiquetaDificultad(dificultad: TourDificultad): string {
   return DIFICULTAD_LABELS[dificultad];
+}
+
+function normalizeTextForCompare(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function isTourDificultadString(value: string): value is TourDificultad {
+  return (tourDificultadValues as readonly string[]).includes(value);
+}
+
+/**
+ * Convierte texto guardado (clave actual, claves legacy de 5 niveles, etiquetas o nombre de catálogo antiguo)
+ * a una `TourDificultad` de cuatro niveles.
+ */
+export function normalizarDificultadDesdeTexto(valor: string): TourDificultad | null {
+  const trimmed = valor.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (isTourDificultadString(trimmed)) {
+    return trimmed;
+  }
+  const norm = normalizeTextForCompare(trimmed);
+  if (norm === "muy_facil" || norm === "facil" || norm === "principiante") {
+    return "facil";
+  }
+  if (norm === "moderado") {
+    return "moderado";
+  }
+  if (norm === "dificil") {
+    return "dificil";
+  }
+  if (norm === "muy_dificil" || norm === "extremo") {
+    return "extremo";
+  }
+  for (const key of tourDificultadValues) {
+    if (normalizeTextForCompare(key) === norm) {
+      return key;
+    }
+    if (normalizeTextForCompare(obtenerEtiquetaDificultad(key)) === norm) {
+      return key;
+    }
+  }
+  return null;
+}
+
+/**
+ * @deprecated Usar `normalizarDificultadDesdeTexto`; se mantiene el nombre por compatibilidad con llamadas existentes.
+ */
+export function resolverTourDificultadDesdeCatalogoNombre(nombre: string): TourDificultad | null {
+  return normalizarDificultadDesdeTexto(nombre);
 }

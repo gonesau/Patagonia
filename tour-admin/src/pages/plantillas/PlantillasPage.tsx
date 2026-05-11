@@ -9,7 +9,6 @@ import { Modal } from "@/components/ui/Modal";
 import { Table } from "@/components/ui/Table";
 import { TableActions } from "@/components/ui/TableActions";
 import { useAuth } from "@/hooks/useAuth";
-import { dificultadesPlantillaService } from "@/services/dificultadesPlantillaService";
 import { plantillasService } from "@/services/plantillasService";
 import { softDeleteService } from "@/services/softDeleteService";
 import { terrenosService } from "@/services/terrenosService";
@@ -20,8 +19,12 @@ import { comprasService } from "@/services/comprasService";
 import { inscripcionesService } from "@/services/inscripcionesService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
 import { plantillaFormSchema, type PlantillaFormValues } from "@/utils/validaciones";
-import { calcularDificultadSugerida, obtenerEtiquetaDificultad } from "@/utils/dificultad";
-import type { DificultadPlantilla } from "@/types/dificultadPlantilla.types";
+import {
+  OPCIONES_DIFICULTAD_PLANTILLA,
+  calcularDificultadSugerida,
+  normalizarDificultadDesdeTexto,
+  obtenerEtiquetaDificultad,
+} from "@/utils/dificultad";
 import type { Terreno } from "@/types/terreno.types";
 import type { TourDificultad, TourPlantilla } from "@/types/tour.types";
 
@@ -49,7 +52,6 @@ export function PlantillasPage() {
   const [plantillas, setPlantillas] = useState<TourPlantilla[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [dificultades, setDificultades] = useState<DificultadPlantilla[]>([]);
   const [terrenos, setTerrenos] = useState<Terreno[]>([]);
   const [selectedPlantilla, setSelectedPlantilla] = useState<TourPlantilla | null>(null);
   const [plantillaToDelete, setPlantillaToDelete] = useState<TourPlantilla | null>(null);
@@ -75,11 +77,7 @@ export function PlantillasPage() {
 
   useEffect(() => {
     void (async () => {
-      await Promise.all([
-        loadPlantillas(),
-        dificultadesPlantillaService.listActive().then(setDificultades),
-        terrenosService.listActive().then(setTerrenos),
-      ]);
+      await Promise.all([loadPlantillas(), terrenosService.listActive().then(setTerrenos)]);
     })();
   }, []);
 
@@ -108,14 +106,10 @@ export function PlantillasPage() {
     [watchedDistanciaKm, watchedElevacionM, watchedAlturaMaxima, watchedTerrenos, factoresPorTerrenoId],
   );
 
-  const obtenerIdDificultad = (clave: TourDificultad): string => {
-    const match = dificultades.find((item) => item.nombre === clave);
-    return match?.id ?? "";
-  };
-
   const aplicarSugerencia = () => {
-    form.setValue("dificultad", sugerenciaDificultad.dificultad, { shouldDirty: true, shouldValidate: true });
-    form.setValue("dificultadId", obtenerIdDificultad(sugerenciaDificultad.dificultad), { shouldDirty: true });
+    const clave = sugerenciaDificultad.dificultad;
+    form.setValue("dificultad", clave, { shouldDirty: true, shouldValidate: true });
+    form.setValue("dificultadId", clave, { shouldDirty: true });
   };
 
   const openCreateModal = () => {
@@ -128,11 +122,15 @@ export function PlantillasPage() {
   const openEditModal = (plantilla: TourPlantilla) => {
     setSelectedPlantilla(plantilla);
     setSuccessMessage(null);
+    const claveFormulario =
+      normalizarDificultadDesdeTexto(String(plantilla.dificultad ?? "")) ??
+      normalizarDificultadDesdeTexto(String(plantilla.dificultadId ?? "")) ??
+      "";
     form.reset({
       nombre: plantilla.nombre,
       descripcion: plantilla.descripcion,
-      dificultad: plantilla.dificultad,
-      dificultadId: plantilla.dificultadId ?? "",
+      dificultad: claveFormulario as TourDificultad | "",
+      dificultadId: claveFormulario,
       distanciaKm: plantilla.distanciaKm,
       elevacionM: plantilla.elevacionM,
       alturaMaximaMsnm: plantilla.alturaMaximaMsnm,
@@ -160,11 +158,10 @@ export function PlantillasPage() {
       setErrorMessage(null);
       setSuccessMessage(null);
       const dificultadSeleccionada = values.dificultad as TourDificultad;
-      const dificultadIdSincronizado = values.dificultadId || obtenerIdDificultad(dificultadSeleccionada);
       const payload = {
         ...values,
         dificultad: dificultadSeleccionada,
-        dificultadId: dificultadIdSincronizado,
+        dificultadId: dificultadSeleccionada,
         puntajeDificultad: sugerenciaDificultad.puntaje,
         dificultadCalculada: sugerenciaDificultad.dificultad,
       };
@@ -255,8 +252,15 @@ export function PlantillasPage() {
             cells: [
               item.nombre,
               item.dificultad
-                ? `${obtenerEtiquetaDificultad(item.dificultad as TourDificultad)}${
-                    item.dificultadCalculada && item.dificultadCalculada !== item.dificultad ? " *" : ""
+                ? `${(() => {
+                    const claveFila = normalizarDificultadDesdeTexto(String(item.dificultad));
+                    return claveFila ? obtenerEtiquetaDificultad(claveFila) : String(item.dificultad);
+                  })()}${
+                    (() => {
+                      const guardada = normalizarDificultadDesdeTexto(String(item.dificultad ?? ""));
+                      const calculada = normalizarDificultadDesdeTexto(String(item.dificultadCalculada ?? ""));
+                      return calculada && guardada && calculada !== guardada ? " *" : "";
+                    })()
                   }`
                 : "—",
               item.puntajeDificultad !== undefined ? item.puntajeDificultad.toFixed(2) : "—",
@@ -363,21 +367,17 @@ export function PlantillasPage() {
               <span>Dificultad final</span>
               <select
                 className="rounded-md border border-border px-3 py-2"
-                {...form.register("dificultad", {
-                  onChange: (event) => {
-                    const valor = event.target.value as TourDificultad | "";
-                    if (valor === "") {
-                      form.setValue("dificultadId", "", { shouldDirty: true });
-                      return;
-                    }
-                    form.setValue("dificultadId", obtenerIdDificultad(valor), { shouldDirty: true });
-                  },
-                })}
+                value={form.watch("dificultad") ?? ""}
+                onChange={(event) => {
+                  const clave = event.target.value as TourDificultad | "";
+                  form.setValue("dificultad", clave, { shouldDirty: true, shouldValidate: true });
+                  form.setValue("dificultadId", clave, { shouldDirty: true });
+                }}
               >
                 <option value="">Selecciona dificultad</option>
-                {dificultades.map((item) => (
-                  <option key={item.id} value={item.nombre}>
-                    {obtenerEtiquetaDificultad(item.nombre as TourDificultad)} ({item.nombre})
+                {OPCIONES_DIFICULTAD_PLANTILLA.map((opcion) => (
+                  <option key={opcion.clave} value={opcion.clave}>
+                    {opcion.etiqueta}
                   </option>
                 ))}
               </select>

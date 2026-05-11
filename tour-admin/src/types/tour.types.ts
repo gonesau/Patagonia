@@ -1,11 +1,8 @@
 import type { SoftDeleteFields } from "./softDelete.types";
+import type { EstadoTourId } from "./estadoTour.types";
 
-export type TourDificultad =
-  | "muy_facil"
-  | "facil"
-  | "moderado"
-  | "dificil"
-  | "muy_dificil";
+/** Cuatro niveles fijos de dificultad de plantilla (sin catálogo en Firestore). */
+export type TourDificultad = "facil" | "moderado" | "dificil" | "extremo";
 
 export interface TourPlantilla extends SoftDeleteFields {
   id: string;
@@ -17,6 +14,7 @@ export interface TourPlantilla extends SoftDeleteFields {
   terrenos?: string[];
   puntajeDificultad?: number;
   dificultadCalculada?: TourDificultad;
+  /** Opcional; datos legacy. Debe coincidir con `dificultad` cuando se persiste desde la app. */
   dificultadId?: string;
   dificultad: TourDificultad | "";
   wikiloc?: string;
@@ -35,8 +33,10 @@ export interface TourOcurrencia extends SoftDeleteFields {
   id: string;
   plantillaId: string;
   nombre: string;
-  estadoId?: string;
-  estado: string;
+  /** Derivado en lectura por `toursService` (fechas y `cancelado`). */
+  estado: EstadoTourId;
+  /** Bandera de cancelación manual. Cuando es `true`, el estado calculado es siempre `'cancelado'`. */
+  cancelado?: boolean;
   activo?: boolean;
   guiaId: string;
   guiaIds?: string[];
