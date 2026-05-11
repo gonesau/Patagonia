@@ -1,3 +1,5 @@
+import type { SoftDeleteFields } from "./softDelete.types";
+
 export type TourDificultad =
   | "muy_facil"
   | "facil"
@@ -5,7 +7,7 @@ export type TourDificultad =
   | "dificil"
   | "muy_dificil";
 
-export interface TourPlantilla {
+export interface TourPlantilla extends SoftDeleteFields {
   id: string;
   nombre: string;
   descripcion: string;
@@ -29,12 +31,13 @@ export interface TourPlantilla {
   creadoPor: string;
 }
 
-export interface TourOcurrencia {
+export interface TourOcurrencia extends SoftDeleteFields {
   id: string;
   plantillaId: string;
   nombre: string;
   estadoId?: string;
   estado: string;
+  activo?: boolean;
   guiaId: string;
   guiaIds?: string[];
   fechaInicio: Date;

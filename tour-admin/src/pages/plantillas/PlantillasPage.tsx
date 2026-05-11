@@ -11,6 +11,7 @@ import { TableActions } from "@/components/ui/TableActions";
 import { useAuth } from "@/hooks/useAuth";
 import { dificultadesPlantillaService } from "@/services/dificultadesPlantillaService";
 import { plantillasService } from "@/services/plantillasService";
+import { softDeleteService } from "@/services/softDeleteService";
 import { terrenosService } from "@/services/terrenosService";
 import { toursService } from "@/services/toursService";
 import { calculateTourMargin } from "@/utils/financiero.utils";
@@ -190,7 +191,7 @@ export function PlantillasPage() {
     setIsHistorialLoading(true);
     setErrorMessage(null);
     try {
-      const ocurrencias = await toursService.listByPlantilla(plantilla.id);
+      const ocurrencias = await toursService.listByPlantilla(plantilla.id, { includeInactive: true });
       const rows: Array<[string, string, string, string, string]> = [];
       for (const tour of ocurrencias) {
         const [pagos, compras] = await Promise.all([
@@ -224,7 +225,10 @@ export function PlantillasPage() {
 
     try {
       setErrorMessage(null);
-      await plantillasService.update(plantillaToDelete.id, { activa: false });
+      await softDeleteService.softDelete("tour_plantillas", plantillaToDelete.id, {
+        usuarioId: profile?.id ?? "sistema",
+        usuarioEmail: profile?.email ?? "",
+      });
       setPlantillaToDelete(null);
       setSuccessMessage("Plantilla eliminada del listado activo.");
       await loadPlantillas();

@@ -1,4 +1,6 @@
-export interface Transporte {
+import type { SoftDeleteFields } from "./softDelete.types";
+
+export interface Transporte extends SoftDeleteFields {
   id: string;
   tipoVehiculoId?: string;
   tipoVehiculoNombreSnapshot?: string;

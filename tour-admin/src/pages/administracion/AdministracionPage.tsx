@@ -64,6 +64,7 @@ export function AdministracionPage() {
           onCreate={adminState.createUser}
           onUpdateRole={adminState.updateUserRole}
           onToggleActive={adminState.toggleUserActive}
+          onDelete={adminState.deleteUser}
         />
       );
     }
@@ -175,6 +176,7 @@ export function AdministracionPage() {
         onCreate={adminState.terrenos.create}
         onUpdate={adminState.terrenos.update}
         onDeactivate={adminState.terrenos.deactivate}
+        onSeedDefaults={adminState.terrenos.seedDefaults}
       />
     );
   }, [activeTab, adminState]);

@@ -17,11 +17,16 @@ import { DEFAULT_PAGE_SIZE, type PaginatedResult, type PaginationParams } from "
 
 const plantillasCollection = collection(db, "tour_plantillas");
 
+function isVisiblePlantilla(item: TourPlantilla): boolean {
+  return (item.activa ?? true) === true && !item.eliminadoDefinitivamente;
+}
+
 export const plantillasService = {
-  async list(): Promise<TourPlantilla[]> {
+  async list(options: { includeInactive?: boolean } = {}): Promise<TourPlantilla[]> {
     const listQuery = query(plantillasCollection, orderBy("creadoEn", "desc"));
     const snapshot = await getDocs(listQuery);
-    return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as TourPlantilla);
+    const items = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as TourPlantilla);
+    return options.includeInactive ? items : items.filter(isVisiblePlantilla);
   },
   async create(data: Omit<TourPlantilla, "id" | "creadoEn">): Promise<void> {
     await addDoc(plantillasCollection, { ...data, creadoEn: serverTimestamp() });
@@ -36,7 +41,9 @@ export const plantillasService = {
       constraints.splice(1, 0, startAfter(options.cursor));
     }
     const snapshot = await getDocs(query(plantillasCollection, ...constraints));
-    const items = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as TourPlantilla);
+    const items = snapshot.docs
+      .map((item) => ({ id: item.id, ...item.data() }) as TourPlantilla)
+      .filter(isVisiblePlantilla);
     return {
       items,
       nextCursor: snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : undefined,

@@ -29,11 +29,17 @@ async function ensureUniqueEmail(email: string, excludeId?: string): Promise<voi
   }
 }
 
+function isVisibleGuia(item: Guia): boolean {
+  return (item.activo ?? true) === true && !item.eliminadoDefinitivamente;
+}
+
 export const guiasService = {
   async list(): Promise<Guia[]> {
     const listQuery = query(guiasCollection, orderBy("creadoEn", "desc"));
     const snapshot = await getDocs(listQuery);
-    return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Guia);
+    return snapshot.docs
+      .map((item) => ({ id: item.id, ...item.data() }) as Guia)
+      .filter(isVisibleGuia);
   },
   async create(data: Omit<Guia, "id" | "creadoEn">): Promise<void> {
     await ensureUniqueEmail(data.email);
@@ -52,7 +58,9 @@ export const guiasService = {
       constraints.splice(1, 0, startAfter(options.cursor));
     }
     const snapshot = await getDocs(query(guiasCollection, ...constraints));
-    const items = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Guia);
+    const items = snapshot.docs
+      .map((item) => ({ id: item.id, ...item.data() }) as Guia)
+      .filter(isVisibleGuia);
     return {
       items,
       nextCursor: snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : undefined,

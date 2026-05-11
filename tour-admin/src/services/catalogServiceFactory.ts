@@ -10,6 +10,13 @@ function mapCatalogItem<T extends CatalogItem>(id: string, data: Record<string, 
     nombre: String(normalizedData.nombre ?? ""),
     descripcion: String(normalizedData.descripcion ?? ""),
     activo: Boolean(normalizedData.activo),
+    eliminadoDefinitivamente:
+      typeof normalizedData.eliminadoDefinitivamente === "boolean"
+        ? normalizedData.eliminadoDefinitivamente
+        : undefined,
+    eliminadoEn: normalizedData.eliminadoEn instanceof Date ? normalizedData.eliminadoEn : undefined,
+    eliminadoPor:
+      typeof normalizedData.eliminadoPor === "string" ? normalizedData.eliminadoPor : undefined,
     creadoEn: normalizedData.creadoEn instanceof Date ? normalizedData.creadoEn : new Date(),
     actualizadoEn: normalizedData.actualizadoEn instanceof Date ? normalizedData.actualizadoEn : new Date(),
   } as T;
@@ -22,9 +29,13 @@ export function createCatalogService<T extends CatalogItem>(collectionName: stri
       const snapshot = await getDocs(query(catalogCollection, orderBy("nombre", "asc")));
       return snapshot.docs.map((item) => mapCatalogItem<T>(item.id, item.data()));
     },
+    async listVisible(): Promise<T[]> {
+      const data = await this.listAll();
+      return data.filter((item) => !item.eliminadoDefinitivamente);
+    },
     async listActive(): Promise<T[]> {
       const data = await this.listAll();
-      return data.filter((item) => item.activo);
+      return data.filter((item) => item.activo && !item.eliminadoDefinitivamente);
     },
     async create(data: Pick<T, "nombre" | "descripcion">): Promise<void> {
       await addDoc(catalogCollection, {

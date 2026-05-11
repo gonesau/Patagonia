@@ -16,6 +16,7 @@ import { vagosService } from "@/services/vagosService";
 import { inscripcionesVagoService } from "@/services/inscripcionesVagoService";
 import { toursService } from "@/services/toursService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
+import { softDeleteService } from "@/services/softDeleteService";
 import { formatDui, formatPhone, normalizeDui, normalizePhone } from "@/utils/inputMasks";
 import { vagoFormSchema, type VagoFormValues } from "@/utils/validaciones";
 import type { NivelExperiencia } from "@/types/nivelExperiencia.types";
@@ -257,7 +258,10 @@ export function VagosPage() {
 
     try {
       setErrorMessage(null);
-      await vagosService.update(vagoToDelete.id, { activo: false });
+      await softDeleteService.softDelete("vagos", vagoToDelete.id, {
+        usuarioId: profile?.id ?? "sistema",
+        usuarioEmail: profile?.email ?? "",
+      });
       setVagoToDelete(null);
       setSuccessMessage("Vago eliminado del listado activo.");
       await loadVagos(searchTerm);

@@ -1,4 +1,6 @@
-export interface Guia {
+import type { SoftDeleteFields } from "./softDelete.types";
+
+export interface Guia extends SoftDeleteFields {
   id: string;
   nombre: string;
   apellido: string;
@@ -8,6 +10,7 @@ export interface Guia {
   especialidad?: string;
   estadoId?: string;
   estado: string;
+  activo?: boolean;
   grupoSanguineo?: string;
   alergias?: string;
   condicionesMedicas?: string;

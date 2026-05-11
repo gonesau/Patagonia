@@ -1,4 +1,6 @@
-export interface Vago {
+import type { SoftDeleteFields } from "./softDelete.types";
+
+export interface Vago extends SoftDeleteFields {
   id: string;
   nombre: string;
   apellido: string;

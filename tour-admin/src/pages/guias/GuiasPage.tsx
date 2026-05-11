@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Table } from "@/components/ui/Table";
 import { TableActions } from "@/components/ui/TableActions";
+import { useAuth } from "@/hooks/useAuth";
 import { estadosGuiaService } from "@/services/estadosGuiaService";
 import { guiasService } from "@/services/guiasService";
 import { guiaDocumentosService } from "@/services/guiaDocumentosService";
+import { softDeleteService } from "@/services/softDeleteService";
 import { toursService } from "@/services/toursService";
 import { uploadAdminFile } from "@/services/storageUploadService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
@@ -53,6 +55,7 @@ function diasHastaVencimiento(vence: Date | undefined): number | null {
 }
 
 export function GuiasPage() {
+  const { profile } = useAuth();
   const [guias, setGuias] = useState<Guia[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -215,7 +218,10 @@ export function GuiasPage() {
 
     try {
       setErrorMessage(null);
-      await guiasService.update(guiaToDelete.id, { estado: "inactivo" });
+      await softDeleteService.softDelete("guias", guiaToDelete.id, {
+        usuarioId: profile?.id ?? "sistema",
+        usuarioEmail: profile?.email ?? "",
+      });
       setGuiaToDelete(null);
       setSuccessMessage("Guía eliminado del listado operativo.");
       await loadGuias();

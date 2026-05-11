@@ -26,11 +26,17 @@ async function ensureUniquePlaca(placa: string, excludeId?: string): Promise<voi
   }
 }
 
+function isVisibleTransporte(item: Transporte): boolean {
+  return (item.activo ?? true) === true && !item.eliminadoDefinitivamente;
+}
+
 export const transporteService = {
   async list(): Promise<Transporte[]> {
     const listQuery = query(transporteCollection, orderBy("empresa", "asc"));
     const snapshot = await getDocs(listQuery);
-    return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Transporte);
+    return snapshot.docs
+      .map((item) => ({ id: item.id, ...item.data() }) as Transporte)
+      .filter(isVisibleTransporte);
   },
   async create(data: Omit<Transporte, "id">): Promise<void> {
     await ensureUniquePlaca(data.placa);

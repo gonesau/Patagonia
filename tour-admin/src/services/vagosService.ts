@@ -111,7 +111,9 @@ export const vagosService = {
     }
     constraints.push(limit(pageSize));
     const snapshot = await getDocs(query(vagosCollection, ...constraints));
-    const items = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Vago);
+    const items = snapshot.docs
+      .map((item) => ({ id: item.id, ...item.data() }) as Vago)
+      .filter((item) => (item.activo ?? true) === true && !item.eliminadoDefinitivamente);
     return {
       items,
       nextCursor: snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : undefined,

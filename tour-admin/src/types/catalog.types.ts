@@ -1,4 +1,6 @@
-export interface CatalogItem {
+import type { SoftDeleteFields } from "./softDelete.types";
+
+export interface CatalogItem extends SoftDeleteFields {
   id: string;
   nombre: string;
   descripcion: string;

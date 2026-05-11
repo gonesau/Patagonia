@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { Table, type TableRow } from "@/components/ui/Table";
-import { TableActions } from "@/components/ui/TableActions";
 import type { Guia } from "@/types/guia.types";
 import type { UserRole, UsuarioSistema } from "@/types/usuario.types";
 
@@ -20,14 +20,24 @@ interface UsersAdminSectionProps {
   }) => Promise<void>;
   onUpdateRole: (userId: string, role: UserRole) => Promise<void>;
   onToggleActive: (userId: string, active: boolean) => Promise<void>;
+  onDelete: (userId: string) => Promise<void>;
 }
 
-export function UsersAdminSection({ users, guias, isSubmitting, onCreate, onUpdateRole, onToggleActive }: UsersAdminSectionProps) {
+export function UsersAdminSection({
+  users,
+  guias,
+  isSubmitting,
+  onCreate,
+  onUpdateRole,
+  onToggleActive,
+  onDelete,
+}: UsersAdminSectionProps) {
   const [email, setEmail] = useState<string>("");
   const [nombre, setNombre] = useState<string>("");
   const [rol, setRol] = useState<UserRole>("operador");
   const [guiaId, setGuiaId] = useState<string>("");
   const [sendInvitation, setSendInvitation] = useState<boolean>(true);
+  const [userToDelete, setUserToDelete] = useState<UsuarioSistema | null>(null);
 
   const handleCreate = async () => {
     if (!email.trim() || !nombre.trim()) {
@@ -45,6 +55,14 @@ export function UsersAdminSection({ users, guias, isSubmitting, onCreate, onUpda
     setRol("operador");
     setGuiaId("");
     setSendInvitation(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) {
+      return;
+    }
+    await onDelete(userToDelete.id);
+    setUserToDelete(null);
   };
 
   const rows: TableRow[] = users.map((user) => ({
@@ -65,11 +83,22 @@ export function UsersAdminSection({ users, guias, isSubmitting, onCreate, onUpda
       </select>,
       user.activo ? "Activo" : "Inactivo",
       user.invitacionPendiente ? "Pendiente" : "Aceptada",
-      <TableActions
-        key={`${user.id}-actions`}
-        onEdit={() => void onToggleActive(user.id, !user.activo)}
-        onDelete={() => void onToggleActive(user.id, false)}
-      />,
+      <div key={`${user.id}-actions`} className="flex flex-wrap gap-2">
+        <Button
+          variant="secondary"
+          disabled={isSubmitting}
+          onClick={() => void onToggleActive(user.id, !user.activo)}
+        >
+          {user.activo ? "Desactivar" : "Activar"}
+        </Button>
+        <Button
+          variant="danger"
+          disabled={isSubmitting}
+          onClick={() => setUserToDelete(user)}
+        >
+          Eliminar
+        </Button>
+      </div>,
     ],
   }));
 
@@ -125,6 +154,27 @@ export function UsersAdminSection({ users, guias, isSubmitting, onCreate, onUpda
           <Table headers={["Nombre", "Email", "Rol", "Estado", "Invitación", "Acciones"]} rows={rows} />
         </Card>
       </div>
+      <Modal
+        isOpen={Boolean(userToDelete)}
+        onClose={() => setUserToDelete(null)}
+        title="Eliminar usuario"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setUserToDelete(null)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={() => void handleConfirmDelete()} disabled={isSubmitting}>
+              Eliminar
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-textDark">
+          {userToDelete
+            ? `¿Confirmas eliminar a "${userToDelete.nombre}"? El usuario se marcará como inactivo y dejará de aparecer en el listado. Podrás reactivarlo desde Auditoría.`
+            : ""}
+        </p>
+      </Modal>
     </div>
   );
 }

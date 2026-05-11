@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Table } from "@/components/ui/Table";
 import { TableActions } from "@/components/ui/TableActions";
+import { useAuth } from "@/hooks/useAuth";
 import { tiposVehiculoService } from "@/services/tiposVehiculoService";
 import { transporteService } from "@/services/transporteService";
+import { softDeleteService } from "@/services/softDeleteService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
 import type { TipoVehiculo } from "@/types/tipoVehiculo.types";
 import { formatPhone, formatPlate } from "@/utils/inputMasks";
@@ -32,6 +34,7 @@ const defaultValues: TransporteFormValues = {
 };
 
 export function TransportePage() {
+  const { profile } = useAuth();
   const [unidades, setUnidades] = useState<Transporte[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -125,7 +128,10 @@ export function TransportePage() {
 
     try {
       setErrorMessage(null);
-      await transporteService.update(unidadToDelete.id, { activo: false });
+      await softDeleteService.softDelete("transporte", unidadToDelete.id, {
+        usuarioId: profile?.id ?? "sistema",
+        usuarioEmail: profile?.email ?? "",
+      });
       setUnidadToDelete(null);
       setSuccessMessage("Unidad eliminada del listado activo.");
       await loadTransporte();

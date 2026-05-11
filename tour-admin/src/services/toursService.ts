@@ -38,6 +38,10 @@ function normalizeTour(data: Record<string, unknown>, id: string): TourOcurrenci
   };
 }
 
+function isVisibleTour(item: TourOcurrencia): boolean {
+  return (item.activo ?? true) === true && !item.eliminadoDefinitivamente;
+}
+
 export const toursService = {
   async getById(tourId: string): Promise<TourOcurrencia | null> {
     const snapshot = await getDoc(doc(db, "tours", tourId));
@@ -47,10 +51,14 @@ export const toursService = {
     return normalizeTour(snapshot.data() as Record<string, unknown>, snapshot.id);
   },
 
-  async listByPlantilla(plantillaId: string): Promise<TourOcurrencia[]> {
+  async listByPlantilla(
+    plantillaId: string,
+    options: { includeInactive?: boolean } = {},
+  ): Promise<TourOcurrencia[]> {
     const snapshot = await getDocs(query(toursCollection, where("plantillaId", "==", plantillaId)));
-    const items = snapshot.docs.map((item) => normalizeTour(item.data() as Record<string, unknown>, item.id));
-    return items.sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime());
+    const all = snapshot.docs.map((item) => normalizeTour(item.data() as Record<string, unknown>, item.id));
+    const filtered = options.includeInactive ? all : all.filter(isVisibleTour);
+    return filtered.sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime());
   },
 
   async listOnLocalDate(day: Date): Promise<TourOcurrencia[]> {
@@ -63,7 +71,9 @@ export const toursService = {
         where("fechaInicio", "<=", Timestamp.fromDate(end)),
       ),
     );
-    return snapshot.docs.map((item) => normalizeTour(item.data() as Record<string, unknown>, item.id));
+    return snapshot.docs
+      .map((item) => normalizeTour(item.data() as Record<string, unknown>, item.id))
+      .filter(isVisibleTour);
   },
 
   async list(guiaId?: string): Promise<TourOcurrencia[]> {
@@ -72,7 +82,9 @@ export const toursService = {
       return page.items;
     }
     const snapshot = await getDocs(query(toursCollection, orderBy("fechaInicio", "desc")));
-    return snapshot.docs.map((item) => normalizeTour(item.data() as Record<string, unknown>, item.id));
+    return snapshot.docs
+      .map((item) => normalizeTour(item.data() as Record<string, unknown>, item.id))
+      .filter(isVisibleTour);
   },
   async create(data: Omit<TourOcurrencia, "id" | "creadoEn" | "actualizadoEn">): Promise<void> {
     const guiaIds = data.guiaIds?.filter((value) => value.length > 0) ?? (data.guiaId ? [data.guiaId] : []);
@@ -111,9 +123,9 @@ export const toursService = {
       for (const docSnap of byList.docs) {
         merged.set(docSnap.id, normalizeTour(docSnap.data() as Record<string, unknown>, docSnap.id));
       }
-      const sorted = Array.from(merged.values()).sort(
-        (a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime(),
-      );
+      const sorted = Array.from(merged.values())
+        .filter(isVisibleTour)
+        .sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime());
       return {
         items: sorted.slice(0, pageSize),
         nextCursor: undefined,
@@ -125,7 +137,9 @@ export const toursService = {
     }
     constraints.push(limit(pageSize));
     const snapshot = await getDocs(query(toursCollection, ...constraints));
-    const items = snapshot.docs.map((item) => normalizeTour(item.data() as Record<string, unknown>, item.id));
+    const items = snapshot.docs
+      .map((item) => normalizeTour(item.data() as Record<string, unknown>, item.id))
+      .filter(isVisibleTour);
     return {
       items,
       nextCursor: snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : undefined,

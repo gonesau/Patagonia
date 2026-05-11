@@ -8,6 +8,7 @@ export interface AuditLogInput {
   accion: "create" | "update" | "delete" | "login" | "export" | "send_email" | "crear_drive";
   entidad: string;
   entidadId: string;
+  detalle?: string;
 }
 
 export interface AuditLogEntry {
@@ -18,13 +19,22 @@ export interface AuditLogEntry {
   entidad: string;
   entidadId: string;
   timestamp: Date;
+  detalle?: string;
 }
 
 export async function registerAuditLog(input: AuditLogInput): Promise<void> {
-  await addDoc(collection(db, "auditoria"), {
-    ...input,
+  const payload: Record<string, unknown> = {
+    usuarioId: input.usuarioId,
+    usuarioEmail: input.usuarioEmail,
+    accion: input.accion,
+    entidad: input.entidad,
+    entidadId: input.entidadId,
     timestamp: serverTimestamp(),
-  });
+  };
+  if (input.detalle) {
+    payload.detalle = input.detalle;
+  }
+  await addDoc(collection(db, "auditoria"), payload);
 }
 
 export async function listRecentAuditLogs(limitCount = 100): Promise<AuditLogEntry[]> {

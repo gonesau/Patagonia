@@ -16,6 +16,7 @@ interface TerrenosCrudSectionProps {
     data: Partial<Pick<Terreno, "nombre" | "descripcion" | "activo" | "factor">>,
   ) => Promise<void>;
   onDeactivate: (id: string) => Promise<void>;
+  onSeedDefaults: () => Promise<number>;
 }
 
 const DEFAULT_FACTOR_INPUT = "1.0";
@@ -40,12 +41,24 @@ export function TerrenosCrudSection({
   onCreate,
   onUpdate,
   onDeactivate,
+  onSeedDefaults,
 }: TerrenosCrudSectionProps) {
   const [nombre, setNombre] = useState<string>("");
   const [descripcion, setDescripcion] = useState<string>("");
   const [factor, setFactor] = useState<string>(DEFAULT_FACTOR_INPUT);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [seedMessage, setSeedMessage] = useState<string | null>(null);
+
+  const handleSeedDefaults = async () => {
+    setSeedMessage(null);
+    const created = await onSeedDefaults();
+    setSeedMessage(
+      created > 0
+        ? `Se sembraron ${created} terrenos por defecto.`
+        : "La colección ya tenía registros; no se creó ningún terreno.",
+    );
+  };
 
   const resetForm = () => {
     setNombre("");
@@ -148,6 +161,17 @@ export function TerrenosCrudSection({
       </div>
       <div className="min-w-0 lg:col-span-2">
         <Card>
+          {items.length === 0 ? (
+            <div className="mb-3 rounded-md border border-dashed border-primary/40 bg-primary/5 p-3 text-sm">
+              <p className="mb-2 text-textDark">
+                No hay terrenos registrados. Puedes sembrar los 7 terrenos estandarizados (Pavimento, Tierra Compacta, Bosque con Raíces, Piedra Suelta, Lodo, Ceniza Volcánica, Roca Técnica) con sus factores oficiales.
+              </p>
+              <Button type="button" disabled={isSubmitting} onClick={() => void handleSeedDefaults()}>
+                {isSubmitting ? "Sembrando..." : "Sembrar terrenos por defecto"}
+              </Button>
+            </div>
+          ) : null}
+          {seedMessage ? <p className="mb-3 text-sm text-success">{seedMessage}</p> : null}
           <Table headers={["Nombre", "Descripción", "Factor", "Estado", "Acciones"]} rows={rows} />
         </Card>
       </div>

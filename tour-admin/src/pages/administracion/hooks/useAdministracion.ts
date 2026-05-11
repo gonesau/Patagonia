@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import type { CatalogItem } from "@/types/catalog.types";
 import type { CategoriaCompra } from "@/types/categoriaCompra.types";
 import type { DificultadPlantilla } from "@/types/dificultadPlantilla.types";
@@ -19,6 +20,7 @@ import { guiasService } from "@/services/guiasService";
 import { metodosPagoService } from "@/services/metodosPagoService";
 import { nivelesExperienciaService } from "@/services/nivelesExperienciaService";
 import { relacionesEmergenciaService } from "@/services/relacionesEmergenciaService";
+import { softDeleteService, type SoftDeletableCollection } from "@/services/softDeleteService";
 import { terrenosService } from "@/services/terrenosService";
 import { tiposVehiculoService } from "@/services/tiposVehiculoService";
 import { userProvisioningService } from "@/services/userProvisioningService";
@@ -40,6 +42,7 @@ interface TerrenosCatalogState {
     data: Partial<Pick<Terreno, "nombre" | "descripcion" | "activo" | "factor">>,
   ) => Promise<void>;
   deactivate: (id: string) => Promise<void>;
+  seedDefaults: () => Promise<number>;
 }
 
 interface AdministracionState {
@@ -66,9 +69,18 @@ interface AdministracionState {
   }) => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => Promise<void>;
   toggleUserActive: (userId: string, active: boolean) => Promise<void>;
+  deleteUser: (userId: string) => Promise<void>;
 }
 
 export function useAdministracion(): AdministracionState {
+  const { profile } = useAuth();
+  const auditContext = useMemo(
+    () => ({
+      usuarioId: profile?.id ?? "sistema",
+      usuarioEmail: profile?.email ?? "",
+    }),
+    [profile?.id, profile?.email],
+  );
   const [users, setUsers] = useState<UsuarioSistema[]>([]);
   const [guias, setGuias] = useState<Guia[]>([]);
   const [categoriasCompraItems, setCategoriasCompraItems] = useState<CategoriaCompra[]>([]);
@@ -99,15 +111,15 @@ export function useAdministracion(): AdministracionState {
     ] = await Promise.all([
       usuariosSistemaService.listAll(),
       guiasService.list(),
-      categoriasCompraService.listAll(),
-      tiposVehiculoService.listAll(),
-      relacionesEmergenciaService.listAll(),
-      estadosTourService.listAll(),
-      metodosPagoService.listAll(),
-      dificultadesPlantillaService.listAll(),
-      estadosGuiaService.listAll(),
-      nivelesExperienciaService.listAll(),
-      terrenosService.listAll(),
+      categoriasCompraService.listVisible(),
+      tiposVehiculoService.listVisible(),
+      relacionesEmergenciaService.listVisible(),
+      estadosTourService.listVisible(),
+      metodosPagoService.listVisible(),
+      dificultadesPlantillaService.listVisible(),
+      estadosGuiaService.listVisible(),
+      nivelesExperienciaService.listVisible(),
+      terrenosService.listVisible(),
     ]);
     setUsers(usersData);
     setGuias(guiasData);
@@ -173,11 +185,17 @@ export function useAdministracion(): AdministracionState {
     });
   };
 
+  const deleteUser = async (userId: string) => {
+    await wrapMutation(async () => {
+      await softDeleteService.softDelete("usuarios_sistema", userId, auditContext);
+    });
+  };
+
   const createCatalogState = <T extends CatalogItem>(
     items: T[],
+    collectionName: SoftDeletableCollection,
     createFn: (data: Pick<T, "nombre" | "descripcion">) => Promise<void>,
     updateFn: (id: string, data: Partial<Pick<T, "nombre" | "descripcion" | "activo">>) => Promise<void>,
-    deactivateFn: (id: string) => Promise<void>,
   ): CatalogState<T> => ({
     items,
     create: async (data) => {
@@ -187,7 +205,7 @@ export function useAdministracion(): AdministracionState {
       await wrapMutation(async () => updateFn(id, data));
     },
     deactivate: async (id) => {
-      await wrapMutation(async () => deactivateFn(id));
+      await wrapMutation(async () => softDeleteService.softDelete(collectionName, id, auditContext));
     },
   });
 
@@ -200,30 +218,67 @@ export function useAdministracion(): AdministracionState {
       await wrapMutation(async () => terrenosService.update(id, data));
     },
     deactivate: async (id) => {
-      await wrapMutation(async () => terrenosService.remove(id));
+      await wrapMutation(async () => softDeleteService.softDelete("terrenos", id, auditContext));
+    },
+    seedDefaults: async () => {
+      let created = 0;
+      await wrapMutation(async () => {
+        created = await terrenosService.seedDefaults();
+      });
+      return created;
     },
   };
 
   return {
     users,
     guias,
-    categoriasCompra: createCatalogState(categoriasCompraItems, categoriasCompraService.create, categoriasCompraService.update, categoriasCompraService.remove),
-    tiposVehiculo: createCatalogState(tiposVehiculoItems, tiposVehiculoService.create, tiposVehiculoService.update, tiposVehiculoService.remove),
-    relacionesEmergencia: createCatalogState(relacionesEmergenciaItems, relacionesEmergenciaService.create, relacionesEmergenciaService.update, relacionesEmergenciaService.remove),
-    estadosTour: createCatalogState(estadosTourItems, estadosTourService.create, estadosTourService.update, estadosTourService.remove),
-    metodosPago: createCatalogState(metodosPagoItems, metodosPagoService.create, metodosPagoService.update, metodosPagoService.remove),
+    categoriasCompra: createCatalogState(
+      categoriasCompraItems,
+      "categoriasCompra",
+      categoriasCompraService.create,
+      categoriasCompraService.update,
+    ),
+    tiposVehiculo: createCatalogState(
+      tiposVehiculoItems,
+      "tiposVehiculo",
+      tiposVehiculoService.create,
+      tiposVehiculoService.update,
+    ),
+    relacionesEmergencia: createCatalogState(
+      relacionesEmergenciaItems,
+      "relacionesEmergencia",
+      relacionesEmergenciaService.create,
+      relacionesEmergenciaService.update,
+    ),
+    estadosTour: createCatalogState(
+      estadosTourItems,
+      "estadosTour",
+      estadosTourService.create,
+      estadosTourService.update,
+    ),
+    metodosPago: createCatalogState(
+      metodosPagoItems,
+      "metodosPago",
+      metodosPagoService.create,
+      metodosPagoService.update,
+    ),
     dificultadesPlantilla: createCatalogState(
       dificultadesPlantillaItems,
+      "dificultadesPlantilla",
       dificultadesPlantillaService.create,
       dificultadesPlantillaService.update,
-      dificultadesPlantillaService.remove,
     ),
-    estadosGuia: createCatalogState(estadosGuiaItems, estadosGuiaService.create, estadosGuiaService.update, estadosGuiaService.remove),
+    estadosGuia: createCatalogState(
+      estadosGuiaItems,
+      "estadosGuia",
+      estadosGuiaService.create,
+      estadosGuiaService.update,
+    ),
     nivelesExperiencia: createCatalogState(
       nivelesExperienciaItems,
+      "nivelesExperiencia",
       nivelesExperienciaService.create,
       nivelesExperienciaService.update,
-      nivelesExperienciaService.remove,
     ),
     terrenos: terrenosState,
     isSubmitting,
@@ -232,5 +287,6 @@ export function useAdministracion(): AdministracionState {
     createUser,
     updateUserRole,
     toggleUserActive,
+    deleteUser,
   };
 }

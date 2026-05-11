@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { useAuth } from "@/hooks/useAuth";
 import { toursService } from "@/services/toursService";
+import { softDeleteService } from "@/services/softDeleteService";
 import { transporteService } from "@/services/transporteService";
 import { uploadAdminFile } from "@/services/storageUploadService";
 import { comprasService } from "@/services/comprasService";
@@ -352,7 +353,10 @@ export function ToursPage() {
 
     try {
       setErrorMessage(null);
-      await toursService.update(tourToDelete.id, { estado: "cancelado" });
+      await softDeleteService.softDelete("tours", tourToDelete.id, {
+        usuarioId: profile?.id ?? "sistema",
+        usuarioEmail: profile?.email ?? "",
+      });
       setTourToDelete(null);
       setSuccessMessage("Tour eliminado del listado operativo.");
       await reloadTours();
