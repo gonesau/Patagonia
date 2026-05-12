@@ -220,7 +220,7 @@ export function ReportesPage() {
     }
   };
 
-  const exportReport = () => {
+  const exportReport = async () => {
     if (!profile) {
       return;
     }
@@ -229,21 +229,26 @@ export function ReportesPage() {
       ["Totales", `$${totales.ingresos.toFixed(2)}`, `$${totales.costos.toFixed(2)}`, `$${totales.margen.toFixed(2)}`, ""],
       ["Compras generales (no tour)", `$${comprasGeneralesTotal.toFixed(2)}`, "", "", ""],
     ];
-    const pdf = generateVagosListPdf(
-      "Reporte financiero",
-      [...rows.map((r) => [...r]), ...footerRows],
-      columnas,
-    );
-    const safeDesde = fechaDesde.replaceAll("-", "");
-    const safeHasta = fechaHasta.replaceAll("-", "");
-    pdf.save(`reporte_financiero_${safeDesde}_${safeHasta}.pdf`);
-    void registerAuditLog({
-      usuarioId: profile.id,
-      usuarioEmail: profile.email,
-      accion: "export",
-      entidad: "reporte_financiero",
-      entidadId: `${fechaDesde}_${fechaHasta}`,
-    });
+    try {
+      const pdf = await generateVagosListPdf(
+        "Reporte financiero",
+        [...rows.map((r) => [...r]), ...footerRows],
+        columnas,
+      );
+      const safeDesde = fechaDesde.replaceAll("-", "");
+      const safeHasta = fechaHasta.replaceAll("-", "");
+      pdf.save(`reporte_financiero_${safeDesde}_${safeHasta}.pdf`);
+      void registerAuditLog({
+        usuarioId: profile.id,
+        usuarioEmail: profile.email,
+        accion: "export",
+        entidad: "reporte_financiero",
+        entidadId: `${fechaDesde}_${fechaHasta}`,
+      });
+    } catch (error) {
+      console.error("[ReportesPage] Error al exportar PDF:", error);
+      setErrorMessage(toServiceErrorMessage(error));
+    }
   };
 
   return (
@@ -329,7 +334,7 @@ export function ReportesPage() {
           <Button
             className="inline-flex items-center justify-center gap-2"
             variant="secondary"
-            onClick={exportReport}
+            onClick={() => void exportReport()}
             disabled={!rows.length}
           >
             <FileDown size={16} strokeWidth={1.8} />

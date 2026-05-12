@@ -1,6 +1,22 @@
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import type { jsPDF } from "jspdf";
 import type { Compra } from "@/types/compra.types";
+
+type JsPDFConstructor = typeof import("jspdf").jsPDF;
+type AutoTableFn = typeof import("jspdf-autotable").default;
+
+let pdfDepsPromise: Promise<{ jsPDFCtor: JsPDFConstructor; autoTable: AutoTableFn }> | null = null;
+
+async function loadPdfDeps() {
+  if (!pdfDepsPromise) {
+    pdfDepsPromise = Promise.all([import("jspdf"), import("jspdf-autotable")]).then(
+      ([jspdfModule, autoTableModule]) => ({
+        jsPDFCtor: jspdfModule.jsPDF,
+        autoTable: autoTableModule.default,
+      }),
+    );
+  }
+  return pdfDepsPromise;
+}
 
 export interface TourVagosPdfRow {
   fullName: string;
@@ -46,8 +62,13 @@ async function loadImageDataUrl(url: string): Promise<string | null> {
   }
 }
 
-export function generateVagosListPdf(titulo: string, rows: Array<string[]>, columnas?: string[]) {
-  const pdf = new jsPDF();
+export async function generateVagosListPdf(
+  titulo: string,
+  rows: Array<string[]>,
+  columnas?: string[],
+): Promise<jsPDF> {
+  const { jsPDFCtor, autoTable } = await loadPdfDeps();
+  const pdf = new jsPDFCtor();
   pdf.setFontSize(14);
   pdf.text(titulo, 14, 18);
   const headRow = columnas ?? ["Vago", "Teléfono", "Pagado", "Saldo", "Estado"];
@@ -70,7 +91,8 @@ export async function generateTourVagosPdf(
   data: TourVagosPdfData,
   options: GenerateTourVagosPdfOptions = {},
 ): Promise<jsPDF> {
-  const pdf = new jsPDF();
+  const { jsPDFCtor, autoTable } = await loadPdfDeps();
+  const pdf = new jsPDFCtor();
   
   // Paleta de colores Premium 2026
   const brandGreen: [number, number, number] = [14, 56, 50];

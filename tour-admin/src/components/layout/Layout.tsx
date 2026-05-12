@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
@@ -41,7 +41,13 @@ export function Layout() {
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
         />
         <main className="flex-1 p-3 sm:p-4 lg:p-6">
-          <Outlet />
+          <Suspense
+            fallback={
+              <div className="p-8 text-sm text-textDark">Cargando módulo...</div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

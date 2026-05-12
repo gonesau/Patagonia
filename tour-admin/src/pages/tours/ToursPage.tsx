@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FileDown } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -571,7 +570,7 @@ export function ToursPage() {
             isReadOnly={!isAdmin}
             isExportingPdf={isExportingPdf}
             onRegistrarPago={(inscripcion) => setPagoInscripcionTarget(inscripcion)}
-            onDesinscribir={(inscripcionId) => cancelInscripcion(inscripcionId)}
+            onDesinscribir={async (inscripcionId) => { await cancelInscripcion(inscripcionId); }}
             onExportarPdf={handleExportVagosPdf}
             onReloadTour={async () => {
               await reloadTours();

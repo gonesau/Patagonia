@@ -1,21 +1,47 @@
+import { lazy } from "react";
 import { Navigate, Outlet, RouterProvider, createBrowserRouter } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { useAuth } from "@/hooks/useAuth";
 import { LoginPage } from "@/pages/auth/LoginPage";
-import { DashboardPage } from "@/pages/dashboard/DashboardPage";
-import { VagosPage } from "@/pages/vagos/VagosPage";
-import { GuiasPage } from "@/pages/guias/GuiasPage";
-import { TransportePage } from "@/pages/transporte/TransportePage";
-import { PlantillasPage } from "@/pages/plantillas/PlantillasPage";
-import { ToursPage } from "@/pages/tours/ToursPage";
-import { CalendarioPage } from "@/pages/calendario/CalendarioPage";
-import { ReportesPage } from "@/pages/reportes/ReportesPage";
-import { ComprasPage } from "@/pages/compras/ComprasPage";
-import { ConfiguracionPage } from "@/pages/configuracion/ConfiguracionPage";
-import { AdministracionPage } from "@/pages/administracion/AdministracionPage";
 import { AccessDeniedPage } from "@/pages/auth/AccessDeniedPage";
 import type { UserRole } from "@/types/usuario.types";
 import { RouteErrorFallback } from "@/components/errors/RouteErrorFallback";
+
+const DashboardPage = lazy(() =>
+  import("@/pages/dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })),
+);
+const VagosPage = lazy(() =>
+  import("@/pages/vagos/VagosPage").then((m) => ({ default: m.VagosPage })),
+);
+const GuiasPage = lazy(() =>
+  import("@/pages/guias/GuiasPage").then((m) => ({ default: m.GuiasPage })),
+);
+const TransportePage = lazy(() =>
+  import("@/pages/transporte/TransportePage").then((m) => ({ default: m.TransportePage })),
+);
+const PlantillasPage = lazy(() =>
+  import("@/pages/plantillas/PlantillasPage").then((m) => ({ default: m.PlantillasPage })),
+);
+const ToursPage = lazy(() =>
+  import("@/pages/tours/ToursPage").then((m) => ({ default: m.ToursPage })),
+);
+const CalendarioPage = lazy(() =>
+  import("@/pages/calendario/CalendarioPage").then((m) => ({ default: m.CalendarioPage })),
+);
+const ReportesPage = lazy(() =>
+  import("@/pages/reportes/ReportesPage").then((m) => ({ default: m.ReportesPage })),
+);
+const ComprasPage = lazy(() =>
+  import("@/pages/compras/ComprasPage").then((m) => ({ default: m.ComprasPage })),
+);
+const ConfiguracionPage = lazy(() =>
+  import("@/pages/configuracion/ConfiguracionPage").then((m) => ({ default: m.ConfiguracionPage })),
+);
+const AdministracionPage = lazy(() =>
+  import("@/pages/administracion/AdministracionPage").then((m) => ({
+    default: m.AdministracionPage,
+  })),
+);
 
 function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
   const { firebaseUser, isLoading, role, errorMessage } = useAuth();

@@ -9,17 +9,6 @@ import { notificacionesService } from "@/services/notificacionesService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
 import { AlertMessage } from "@/components/ui/AlertMessage";
 
-function estadoPagoBadgeClass(estado: Inscripcion["estadoPago"]): string {
-  if (estado === "completo") return "bg-emerald-100 text-emerald-900";
-  if (estado === "parcial") return "bg-amber-100 text-amber-900";
-  return "bg-red-100 text-red-900";
-}
-
-function estadoPagoLabel(estado: Inscripcion["estadoPago"]): string {
-  if (estado === "completo") return "Completado";
-  if (estado === "parcial") return "Parcial";
-  return "Pendiente";
-}
 
 interface VagosInscritosPanelProps {
   tourId: string;
@@ -130,7 +119,6 @@ export function VagosInscritosPanel({
             <span className="font-semibold">{selectedIds.size} seleccionados</span>
             <span className="mx-1 hidden sm:inline">|</span>
             <Button
-              size="sm"
               variant="secondary"
               className="px-2 py-1 text-xs"
               onClick={() => setReminderOpen(true)}
@@ -138,7 +126,6 @@ export function VagosInscritosPanel({
               <Mail size={14} className="mr-1" /> Enviar recordatorio
             </Button>
             <Button
-              size="sm"
               variant="secondary"
               className="px-2 py-1 text-xs"
               onClick={() => setPhotosOpen(true)}
