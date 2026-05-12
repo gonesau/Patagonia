@@ -7,15 +7,22 @@ import { formatPhone } from "@/utils/inputMasks";
 import { ServiceError } from "@/services/serviceErrors";
 import type { TourVagosPdfData } from "@/utils/pdf.utils";
 
-function toCurrency(value: number): string {
-  return `$${value.toFixed(2)}`;
-}
-
 function toDateTime(value: Date): string {
   return new Intl.DateTimeFormat("es-SV", {
     dateStyle: "full",
     timeStyle: "short",
   }).format(value);
+}
+
+const currencyUsd = new Intl.NumberFormat("es-SV", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+function formatCurrencyUsd(value: number): string {
+  return currencyUsd.format(value);
 }
 
 export async function buildTourVagosReport(tourId: string): Promise<TourVagosPdfData> {
@@ -79,8 +86,8 @@ export async function buildTourVagosReport(tourId: string): Promise<TourVagosPdf
       return {
         fullName: saldo > 0.01 ? `* ${inscripcion.vagoNombre}` : inscripcion.vagoNombre,
         contact: `${inscripcion.vagoEmail} / ${formatPhone(inscripcion.vagoTelefono)}`,
-        advance: toCurrency(inscripcion.montoPagado),
-        complement: toCurrency(saldo),
+        advance: formatCurrencyUsd(inscripcion.montoPagado),
+        complement: formatCurrencyUsd(saldo),
         paymentMethods: paymentMethods.length > 0 ? paymentMethods.join(", ") : "Sin pagos",
       };
     });
@@ -104,7 +111,6 @@ export async function buildTourVagosReport(tourId: string): Promise<TourVagosPdf
           `Motorista: ${transport.motorista}`,
           `Vehículo: ${transport.marca} ${transport.modelo} (${transport.placa})`,
           `Capacidad: ${transport.capacidad} personas`,
-          `Costo por tour: ${toCurrency(transport.costoPorTour)}`,
         ]
       : ["No hay transporte asignado para este tour."],
   };

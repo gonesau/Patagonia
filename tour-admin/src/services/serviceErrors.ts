@@ -8,6 +8,9 @@ export class ServiceError extends Error {
 }
 
 export function toServiceErrorMessage(error: unknown): string {
+  if (typeof console !== "undefined") {
+    console.error("[ServiceError]", error);
+  }
   if (error instanceof ServiceError) {
     return error.message;
   }

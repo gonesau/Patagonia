@@ -43,6 +43,7 @@ const defaultValues: PlantillaFormValues = {
   itinerarioTipo: "",
   serviciosExtras: "",
   politicaCancelacion: "",
+  tiempoEstimado: "",
   precioBase: 0,
   activa: true,
 };
@@ -141,6 +142,7 @@ export function PlantillasPage() {
       itinerarioTipo: plantilla.itinerarioTipo ?? "",
       serviciosExtras: plantilla.serviciosExtras ?? "",
       politicaCancelacion: plantilla.politicaCancelacion ?? "",
+      tiempoEstimado: plantilla.tiempoEstimado ?? "",
       precioBase: plantilla.precioBase,
       activa: plantilla.activa,
     });
@@ -246,7 +248,7 @@ export function PlantillasPage() {
         {successMessage ? <p className="mb-3 text-sm text-success">{successMessage}</p> : null}
         <Table
           emptyMessage="No hay plantillas registradas."
-          headers={["Nombre", "Dificultad", "Puntaje", "Precio base", "Estado", "Acciones"]}
+          headers={["Nombre", "Dificultad", "Distancia y Tiempo", "Precio base", "Estado", "Acciones"]}
           rows={plantillas.map((item) => ({
             key: item.id,
             cells: [
@@ -263,7 +265,7 @@ export function PlantillasPage() {
                     })()
                   }`
                 : "—",
-              item.puntajeDificultad !== undefined ? item.puntajeDificultad.toFixed(2) : "—",
+              `${item.distanciaKm ? item.distanciaKm + " km" : "—"} / ${item.tiempoEstimado ?? "—"}`,
               `$${item.precioBase.toFixed(2)}`,
               item.activa ? "Activa" : "Inactiva",
               <div key={`act-${item.id}`} className="flex flex-wrap gap-2">
@@ -299,6 +301,7 @@ export function PlantillasPage() {
               {...form.register("distanciaKm", { valueAsNumber: true })}
               error={form.formState.errors.distanciaKm?.message}
             />
+            <Input label="Tiempo estimado" {...form.register("tiempoEstimado")} />
             <Input
               label="Elevación acumulada (m)"
               type="number"
@@ -336,7 +339,6 @@ export function PlantillasPage() {
                       />
                       <span>
                         <span className="font-medium">{terreno.nombre}</span>
-                        <span className="ml-1 text-xs text-neutral">(factor {terreno.factor.toFixed(1)})</span>
                         {terreno.descripcion ? (
                           <span className="block text-xs text-neutral">{terreno.descripcion}</span>
                         ) : null}
@@ -399,7 +401,7 @@ export function PlantillasPage() {
               <textarea className="min-h-24 rounded-md border border-border px-3 py-2" {...form.register("itinerarioTipo")} />
             </label>
             <label className="flex flex-col gap-1 text-sm md:col-span-2">
-              <span>Servicios extras</span>
+              <span>Que incluimos</span>
               <textarea className="min-h-20 rounded-md border border-border px-3 py-2" {...form.register("serviciosExtras")} />
             </label>
             <label className="flex flex-col gap-1 text-sm md:col-span-2">

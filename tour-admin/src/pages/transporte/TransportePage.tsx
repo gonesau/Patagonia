@@ -29,7 +29,6 @@ const defaultValues: TransporteFormValues = {
   anio: undefined,
   placa: "",
   capacidad: 0,
-  costoPorTour: 0,
   activo: true,
 };
 
@@ -86,7 +85,6 @@ export function TransportePage() {
       anio: unidad.anio,
       placa: unidad.placa,
       capacidad: unidad.capacidad,
-      costoPorTour: unidad.costoPorTour,
       activo: unidad.activo,
     });
     setIsFormModalOpen(true);
@@ -142,7 +140,7 @@ export function TransportePage() {
 
   return (
     <>
-      <PageHeader title="Gestión de Transporte" description="Registro de flota, costos y disponibilidad." />
+      <PageHeader title="Gestión de Transporte" description="Registro de flota y disponibilidad de vehículos." />
       <Card>
         <div className="mb-4 flex items-center justify-between gap-3">
           <h3 className="font-heading text-lg">Listado de unidades</h3>
@@ -152,14 +150,13 @@ export function TransportePage() {
         {successMessage ? <p className="mb-3 text-sm text-success">{successMessage}</p> : null}
         <Table
           emptyMessage="No hay unidades registradas."
-          headers={["Empresa", "Placa", "Capacidad", "Costo", "Estado", "Acciones"]}
+          headers={["Empresa", "Placa", "Capacidad", "Estado", "Acciones"]}
           rows={unidades.map((item) => ({
             key: item.id,
             cells: [
               item.empresa,
               item.placa,
               item.capacidad,
-              `$${item.costoPorTour.toFixed(2)}`,
               item.activo ? "Activa" : "Inactiva",
               <TableActions key={`actions-${item.id}`} onDelete={() => setUnidadToDelete(item)} onEdit={() => openEditModal(item)} />,
             ],
@@ -211,12 +208,6 @@ export function TransportePage() {
               type="number"
               {...form.register("capacidad", { valueAsNumber: true })}
               error={form.formState.errors.capacidad?.message}
-            />
-            <Input
-              label="Costo por tour"
-              type="number"
-              {...form.register("costoPorTour", { valueAsNumber: true })}
-              error={form.formState.errors.costoPorTour?.message}
             />
           </div>
           <label className="flex items-center gap-2 text-sm">

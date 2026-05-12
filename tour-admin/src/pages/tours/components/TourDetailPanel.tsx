@@ -1,4 +1,14 @@
-import { ClipboardList, CircleDollarSign, HandCoins, ReceiptText, Users } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  CircleDollarSign,
+  CircleDot,
+  ClipboardList,
+  HandCoins,
+  ReceiptText,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import type { TourOcurrencia } from "@/types/tour.types";
 
@@ -14,6 +24,11 @@ interface TourDetailPanelProps {
   costoTotal: number;
   margenGanancia: number;
   margenPorcentajeSobreIngresos: number;
+  pagadoCompleto: number;
+  pagoParcial: number;
+  sinPagar: number;
+  montoRecaudado: number;
+  montoPendiente: number;
 }
 
 export function TourDetailPanel({
@@ -28,6 +43,11 @@ export function TourDetailPanel({
   costoTotal,
   margenGanancia,
   margenPorcentajeSobreIngresos,
+  pagadoCompleto,
+  pagoParcial,
+  sinPagar,
+  montoRecaudado,
+  montoPendiente,
 }: TourDetailPanelProps) {
   return (
     <Card>
@@ -118,6 +138,59 @@ export function TourDetailPanel({
           </p>
         </Card>
       </div>
+
+      {selectedTour ? (
+        <section className="mt-5">
+          <h4 className="mb-3 flex items-center gap-2 font-heading text-base text-textDark">
+            <Wallet size={16} strokeWidth={1.8} />
+            Resumen de pagos
+          </h4>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            <Card>
+              <p className="inline-flex items-center gap-1 text-xs text-neutral">
+                <Users size={14} strokeWidth={1.8} />
+                Inscritos activos
+              </p>
+              <p className="font-mono text-lg">{inscripcionesActivas}</p>
+            </Card>
+            <Card>
+              <p className="inline-flex items-center gap-1 text-xs text-neutral">
+                <CheckCircle2 size={14} strokeWidth={1.8} />
+                Pago completado
+              </p>
+              <p className="font-mono text-lg text-success">{pagadoCompleto}</p>
+            </Card>
+            <Card>
+              <p className="inline-flex items-center gap-1 text-xs text-neutral">
+                <CircleDot size={14} strokeWidth={1.8} />
+                Pago parcial
+              </p>
+              <p className="font-mono text-lg text-warning">{pagoParcial}</p>
+            </Card>
+            <Card>
+              <p className="inline-flex items-center gap-1 text-xs text-neutral">
+                <AlertCircle size={14} strokeWidth={1.8} />
+                Pago pendiente
+              </p>
+              <p className="font-mono text-lg text-danger">{sinPagar}</p>
+            </Card>
+            <Card>
+              <p className="inline-flex items-center gap-1 text-xs text-neutral">
+                <HandCoins size={14} strokeWidth={1.8} />
+                Monto recaudado
+              </p>
+              <p className="font-mono text-lg text-success">${montoRecaudado.toFixed(2)}</p>
+            </Card>
+            <Card>
+              <p className="inline-flex items-center gap-1 text-xs text-neutral">
+                <ReceiptText size={14} strokeWidth={1.8} />
+                Monto pendiente
+              </p>
+              <p className="font-mono text-lg text-danger">${montoPendiente.toFixed(2)}</p>
+            </Card>
+          </div>
+        </section>
+      ) : null}
     </Card>
   );
 }

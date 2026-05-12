@@ -109,7 +109,8 @@ export function ReportesPage() {
     if (!tourDetalle) {
       return null;
     }
-    const inscripcionesActivas = inscripcionesFinanzas.filter((i) => i.estado !== "cancelado").length;
+    const activas = inscripcionesFinanzas.filter((i) => i.estado !== "cancelado");
+    const inscripcionesActivas = activas.length;
     const ingresosRecibidos = inscripcionesFinanzas.reduce((total, item) => total + item.montoPagado, 0);
     const ingresosEsperados = tourDetalle.precioVenta * inscripcionesActivas;
     const costoCompras = comprasFinanzas.reduce((total, item) => total + item.monto, 0);
@@ -120,6 +121,22 @@ export function ReportesPage() {
       tourDetalle.costosExtras ?? 0,
       ingresosEsperados,
     );
+    let pagadoCompleto = 0;
+    let pagoParcial = 0;
+    let sinPagar = 0;
+    let montoRecaudado = 0;
+    let montoPendiente = 0;
+    for (const inscripcion of activas) {
+      montoRecaudado += inscripcion.montoPagado;
+      montoPendiente += Math.max(0, inscripcion.montoTotal - inscripcion.montoPagado);
+      if (inscripcion.estadoPago === "completo") {
+        pagadoCompleto += 1;
+      } else if (inscripcion.estadoPago === "parcial") {
+        pagoParcial += 1;
+      } else {
+        sinPagar += 1;
+      }
+    }
     return {
       inscripcionesActivas,
       cupoMaximo: tourDetalle.cupoMaximo,
@@ -128,6 +145,11 @@ export function ReportesPage() {
       costoCompras,
       costoTransporte: tourDetalle.costoTransporte ?? 0,
       costosExtras: tourDetalle.costosExtras ?? 0,
+      pagadoCompleto,
+      pagoParcial,
+      sinPagar,
+      montoRecaudado,
+      montoPendiente,
       ...financial,
     };
   }, [tourDetalle, inscripcionesFinanzas, comprasFinanzas]);
@@ -265,7 +287,12 @@ export function ReportesPage() {
             inscripcionesActivas={finanzasMetrics.inscripcionesActivas}
             margenGanancia={finanzasMetrics.margenGanancia}
             margenPorcentajeSobreIngresos={finanzasMetrics.margenPorcentajeSobreIngresos}
+            montoPendiente={finanzasMetrics.montoPendiente}
+            montoRecaudado={finanzasMetrics.montoRecaudado}
+            pagadoCompleto={finanzasMetrics.pagadoCompleto}
+            pagoParcial={finanzasMetrics.pagoParcial}
             selectedTour={tourDetalle}
+            sinPagar={finanzasMetrics.sinPagar}
           />
         ) : null}
         {!finanzasLoading && !finanzasTourId ? (

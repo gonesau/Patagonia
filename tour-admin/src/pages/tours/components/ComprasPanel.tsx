@@ -14,6 +14,10 @@ interface ComprasPanelProps {
   comprasGenerales: Compra[];
   categorias: CategoriaCompra[];
   isSubmitting: boolean;
+  /** Muestra el formulario de alta; la edición desde la tabla lo fuerza visible aunque sea false. */
+  showCreateForm: boolean;
+  onCancelRegister: () => void;
+  onRegisterSuccess?: () => void;
   isReadOnly?: boolean;
   onCreate: (payload: Omit<Compra, "id" | "creadoEn" | "actualizadoEn">) => Promise<void>;
   onUpdate: (compraId: string, payload: Partial<Omit<Compra, "id" | "creadoEn" | "actualizadoEn">>) => Promise<void>;
@@ -46,6 +50,9 @@ export function ComprasPanel({
   comprasGenerales,
   categorias,
   isSubmitting,
+  showCreateForm,
+  onCancelRegister,
+  onRegisterSuccess,
   isReadOnly = false,
   onCreate,
   onUpdate,
@@ -57,6 +64,8 @@ export function ComprasPanel({
 
   const selectedCategoria = categorias.find((item) => item.id === formState.categoriaId);
   const isEditMode = Boolean(editingCompraId);
+  const showFormCard = !isReadOnly && (showCreateForm || isEditMode);
+  const tablesColSpan = showFormCard ? "xl:col-span-2" : "xl:col-span-3";
 
   const comprasTourRows: TableRow[] = comprasTour.map((item) => ({
     key: item.id,
@@ -137,15 +146,16 @@ export function ComprasPanel({
       await onUpdate(editingCompraId, payload);
     } else {
       await onCreate(payload);
+      onRegisterSuccess?.();
     }
     handleFormReset();
   };
 
   return (
     <>
-      {!isReadOnly ? (
+      {!isReadOnly && showFormCard ? (
       <Card>
-        <h3 className="mb-2 font-heading text-lg">Compras del tour</h3>
+        <h3 className="mb-2 font-heading text-lg">Registrar o editar compra</h3>
         {!hasActiveCategories ? (
           <p className="rounded-md bg-warning/10 p-3 text-sm text-textDark">
             No hay categorías activas. Crea categorías en Administración para registrar compras.
@@ -204,25 +214,39 @@ export function ComprasPanel({
             <p className="text-xs text-neutral">Elige un tour en el selector superior para poder asociar compras a una ocurrencia.</p>
           ) : null}
           {formError ? <p className="text-sm text-danger">{formError}</p> : null}
-          <div className="flex gap-2">
-            <Button className="w-full" onClick={() => void handleSubmit()} disabled={isSubmitting || !hasActiveCategories}>
-              {isSubmitting ? "Guardando..." : isEditMode ? "Actualizar compra" : "Registrar compra"}
+          <div className="flex flex-wrap gap-2">
+            <Button className="min-w-[140px] flex-1" onClick={() => void handleSubmit()} disabled={isSubmitting || !hasActiveCategories}>
+              {isSubmitting ? "Guardando..." : isEditMode ? "Actualizar compra" : "Guardar compra"}
             </Button>
             {isEditMode ? (
-              <Button variant="ghost" className="w-full" onClick={handleFormReset} disabled={isSubmitting}>
+              <Button variant="ghost" className="min-w-[140px] flex-1" onClick={handleFormReset} disabled={isSubmitting}>
                 Cancelar edición
               </Button>
-            ) : null}
+            ) : (
+              <Button
+                variant="ghost"
+                className="min-w-[140px] flex-1"
+                type="button"
+                onClick={() => {
+                  handleFormReset();
+                  onCancelRegister();
+                }}
+                disabled={isSubmitting}
+              >
+                Cerrar
+              </Button>
+            )}
           </div>
         </div>
       </Card>
-      ) : (
+      ) : null}
+      {isReadOnly ? (
         <Card>
           <h3 className="mb-2 font-heading text-lg">Compras del tour</h3>
           <p className="text-sm text-neutral">Solo lectura: no puedes registrar compras con tu rol.</p>
         </Card>
-      )}
-      <div className="xl:col-span-2">
+      ) : null}
+      <div className={tablesColSpan}>
         <Card>
           <h4 className="mb-3 font-heading text-base">Compras asociadas al tour</h4>
           <Table

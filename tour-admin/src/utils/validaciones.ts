@@ -29,6 +29,7 @@ export const vagoFormSchema = z.object({
   telefono: phoneSchema,
   telefonoWhatsapp: optionalPhoneSchema,
   dui: optionalDuiSchema,
+  genero: z.string().optional(),
   fechaNacimiento: z.string().optional(),
   contactoEmergenciaNombre: z.string().min(1, "Contacto de emergencia requerido"),
   contactoEmergenciaRelacionId: z.string().optional(),
@@ -75,7 +76,6 @@ export const transporteFormSchema = z.object({
   }, z.number().min(1950).max(2100).optional()),
   placa: z.string().min(5, "Placa requerida"),
   capacidad: z.number().min(1, "Capacidad inválida"),
-  costoPorTour: z.number().min(0, "Costo inválido"),
   activo: z.boolean(),
 });
 export type TransporteFormValues = z.infer<typeof transporteFormSchema>;
@@ -110,6 +110,7 @@ export const plantillaFormSchema = z.object({
   itinerarioTipo: z.string().optional(),
   serviciosExtras: z.string().optional(),
   politicaCancelacion: z.string().optional(),
+  tiempoEstimado: z.string().optional(),
   precioBase: z.number().min(0, "Precio inválido"),
   activa: z.boolean(),
 });

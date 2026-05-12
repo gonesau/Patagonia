@@ -39,9 +39,14 @@ export const pagosService = {
     return snapshot.docs.map((item) => timestampToDate({ id: item.id, ...item.data() } as Record<string, unknown>) as unknown as Pago);
   },
   async create(data: Omit<Pago, "id">): Promise<void> {
-    await addDoc(collection(db, "pagos"), {
+    const sanitizedEntries = Object.entries({
       ...data,
       registradoPor: data.registradoPor ?? "sistema",
+      fecha: data.fecha ?? new Date(),
+    }).filter(([, value]) => value !== undefined);
+    const sanitized = Object.fromEntries(sanitizedEntries);
+    await addDoc(collection(db, "pagos"), {
+      ...sanitized,
       creadoEn: serverTimestamp(),
     });
     const inscripcionRef = doc(db, "tours", data.tourId, "inscripciones", data.inscripcionId);

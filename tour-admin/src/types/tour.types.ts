@@ -23,6 +23,7 @@ export interface TourPlantilla extends SoftDeleteFields {
   itinerarioTipo?: string;
   serviciosExtras?: string;
   politicaCancelacion?: string;
+  tiempoEstimado?: string;
   precioBase: number;
   activa: boolean;
   creadoEn: Date;

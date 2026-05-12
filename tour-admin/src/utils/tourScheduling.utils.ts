@@ -3,6 +3,7 @@ import type { TourPlantilla } from "@/types/tour.types";
 
 export async function findGuiaIdsWithTourConflict(
   fechaInicio: Date,
+  fechaFin: Date,
   guiaIds: string[],
   excludeTourId: string | undefined,
 ): Promise<string[]> {
@@ -11,6 +12,10 @@ export async function findGuiaIdsWithTourConflict(
   }
   const toursThatDay = await toursService.listOnLocalDate(fechaInicio);
   const conflictIds = new Set<string>();
+  
+  const newStart = fechaInicio.getTime();
+  const newEnd = fechaFin.getTime();
+
   for (const tour of toursThatDay) {
     if (excludeTourId && tour.id === excludeTourId) {
       continue;
@@ -18,10 +23,18 @@ export async function findGuiaIdsWithTourConflict(
     if (tour.estado === "cancelado") {
       continue;
     }
-    const assigned = tour.guiaIds && tour.guiaIds.length > 0 ? tour.guiaIds : tour.guiaId ? [tour.guiaId] : [];
-    for (const gid of guiaIds) {
-      if (assigned.includes(gid)) {
-        conflictIds.add(gid);
+    
+    const tourStart = new Date(tour.fechaInicio).getTime();
+    const tourEnd = new Date(tour.fechaFin).getTime();
+    
+    const hasOverlap = newStart < tourEnd && newEnd > tourStart;
+
+    if (hasOverlap) {
+      const assigned = tour.guiaIds && tour.guiaIds.length > 0 ? tour.guiaIds : tour.guiaId ? [tour.guiaId] : [];
+      for (const gid of guiaIds) {
+        if (assigned.includes(gid)) {
+          conflictIds.add(gid);
+        }
       }
     }
   }

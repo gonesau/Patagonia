@@ -8,6 +8,7 @@ export interface Vago extends SoftDeleteFields {
   telefono: string;
   telefonoWhatsapp?: string;
   dui?: string;
+  genero?: string;
   fechaNacimiento?: Date;
   contactoEmergenciaNombre: string;
   contactoEmergenciaRelacionId?: string;

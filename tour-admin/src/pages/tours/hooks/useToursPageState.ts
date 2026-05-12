@@ -18,6 +18,28 @@ import type { UsuarioSistema } from "@/types/usuario.types";
 
 const TOURS_PAGE_SIZE = 20;
 
+export interface CreatePagoPayload {
+  inscripcionId: string;
+  monto: number;
+  metodoPagoId: string;
+  metodoPagoNombre?: string;
+  comprobanteUrl?: string;
+  registradoPor: string;
+  notas?: string;
+}
+
+export interface CreateInscripcionConPagoPayload {
+  vago: Vago;
+  montoTotal: number;
+  userId: string;
+  pagoInicial?: {
+    monto: number;
+    metodoPagoId: string;
+    metodoPagoNombre?: string;
+    comprobanteUrl?: string;
+  };
+}
+
 interface UseToursPageStateResult {
   tours: TourOcurrencia[];
   plantillas: TourPlantilla[];
@@ -27,27 +49,27 @@ interface UseToursPageStateResult {
   pagos: Pago[];
   metodosPagoCatalog: MetodoPagoCatalogo[];
   selectedTourId: string;
-  paymentInscripcionId: string;
   errorMessage: string | null;
   hasMoreTours: boolean;
   isLoadingMoreTours: boolean;
   isSubmittingInscripcion: boolean;
   isSubmittingPago: boolean;
   setSelectedTourId: (tourId: string) => void;
-  setPaymentInscripcionId: (inscripcionId: string) => void;
   setErrorMessage: (message: string | null) => void;
   reloadTours: () => Promise<void>;
   loadMoreTours: () => Promise<void>;
-  createInscripcion: (payload: { selectedVagoId: string; montoTotal: number; userId: string }) => Promise<void>;
-  createPago: (payload: {
-    inscripcionId: string;
-    monto: number;
-    metodoPago: string;
-    metodoPagoId?: string;
-    registradoPor: string;
-    comprobanteUrl?: string;
-    notas?: string;
-  }) => Promise<boolean>;
+  createInscripcionConPagoInicial: (payload: CreateInscripcionConPagoPayload) => Promise<boolean>;
+  createPago: (payload: CreatePagoPayload) => Promise<boolean>;
+}
+
+function resolveEstadoPago(montoPagado: number, montoTotal: number): Inscripcion["estadoPago"] {
+  if (montoPagado <= 0) {
+    return "pendiente";
+  }
+  if (montoPagado >= montoTotal) {
+    return "completo";
+  }
+  return "parcial";
 }
 
 export function useToursPageState(profile: UsuarioSistema | null): UseToursPageStateResult {
@@ -59,7 +81,6 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [metodosPagoCatalog, setMetodosPagoCatalog] = useState<MetodoPagoCatalogo[]>([]);
   const [selectedTourId, setSelectedTourId] = useState<string>("");
-  const [paymentInscripcionId, setPaymentInscripcionId] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasMoreTours, setHasMoreTours] = useState<boolean>(false);
   const [isLoadingMoreTours, setIsLoadingMoreTours] = useState<boolean>(false);
@@ -78,11 +99,11 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
     }
     const [plantillasData, guiasData, vagosData] = await Promise.all([
       plantillasService.listPage({ pageSize: 200 }),
-      guiasService.listPage({ pageSize: 200 }),
+      guiasService.list(),
       vagosService.listPage({ pageSize: 200 }),
     ]);
     setPlantillas(plantillasData.items.filter((item) => item.activa));
-    setGuias(guiasData.items.filter((item) => item.estado === "activo"));
+    setGuias(guiasData);
     setVagos(vagosData.items.filter((item) => item.activo));
     const paymentMethodsData = await metodosPagoService.listActive();
     setMetodosPagoCatalog(paymentMethodsData);
@@ -131,10 +152,7 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
     ]);
     setInscripciones(inscripcionesData);
     setPagos(pagosData);
-    if (!paymentInscripcionId && inscripcionesData[0]) {
-      setPaymentInscripcionId(inscripcionesData[0].id);
-    }
-  }, [paymentInscripcionId]);
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -161,50 +179,98 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
     return () => window.clearTimeout(timer);
   }, [loadDetailData, selectedTourId]);
 
-  const createInscripcion = async (payload: { selectedVagoId: string; montoTotal: number; userId: string }) => {
-    if (!selectedTourId || !payload.selectedVagoId || payload.montoTotal <= 0 || isSubmittingInscripcion) {
-      return;
+  const createInscripcionConPagoInicial = async (
+    payload: CreateInscripcionConPagoPayload,
+  ): Promise<boolean> => {
+    if (!selectedTourId) {
+      setErrorMessage("Seleccioná un tour antes de inscribir.");
+      return false;
+    }
+    if (isSubmittingInscripcion) {
+      return false;
+    }
+    if (!payload.vago?.id) {
+      setErrorMessage("Buscá y seleccioná un vago para inscribir.");
+      return false;
+    }
+    if (!Number.isFinite(payload.montoTotal) || payload.montoTotal <= 0) {
+      setErrorMessage("El monto acordado debe ser mayor a 0.");
+      return false;
+    }
+    const anticipo = payload.pagoInicial?.monto ?? 0;
+    if (anticipo < 0) {
+      setErrorMessage("El monto del anticipo no puede ser negativo.");
+      return false;
+    }
+    if (anticipo > payload.montoTotal) {
+      setErrorMessage("El anticipo no puede ser mayor al monto acordado.");
+      return false;
+    }
+    if (anticipo > 0 && !payload.pagoInicial?.metodoPagoId) {
+      setErrorMessage("Seleccioná un método de pago para el anticipo.");
+      return false;
     }
     const selectedTour = tours.find((item) => item.id === selectedTourId);
     if (!selectedTour) {
-      return;
-    }
-    const selectedVago = vagos.find((item) => item.id === payload.selectedVagoId);
-    if (!selectedVago) {
-      return;
+      setErrorMessage("No se encontró el tour seleccionado.");
+      return false;
     }
     try {
       setIsSubmittingInscripcion(true);
       setErrorMessage(null);
-      await inscripcionesService.createForTour(
+      const newInscripcionId = await inscripcionesService.createForTour(
         selectedTourId,
-        selectedVago,
+        payload.vago,
         payload.montoTotal,
         payload.userId,
         selectedTour.cupoMaximo,
       );
+      if (anticipo > 0 && payload.pagoInicial) {
+        await pagosService.create({
+          inscripcionId: newInscripcionId,
+          tourId: selectedTourId,
+          vagoId: payload.vago.id,
+          monto: anticipo,
+          metodoPago: payload.pagoInicial.metodoPagoNombre ?? "Sin especificar",
+          metodoPagoId: payload.pagoInicial.metodoPagoId,
+          fecha: new Date(),
+          registradoPor: payload.userId,
+          comprobanteUrl: payload.pagoInicial.comprobanteUrl,
+        });
+      }
       await loadDetailData(selectedTourId);
+      return true;
     } catch (error) {
       setErrorMessage(toServiceErrorMessage(error));
+      return false;
     } finally {
       setIsSubmittingInscripcion(false);
     }
   };
 
-  const createPago = async (payload: {
-    inscripcionId: string;
-    monto: number;
-    metodoPago: string;
-    metodoPagoId?: string;
-    registradoPor: string;
-    comprobanteUrl?: string;
-    notas?: string;
-  }): Promise<boolean> => {
-    if (!selectedTourId || !payload.inscripcionId || payload.monto <= 0 || isSubmittingPago) {
+  const createPago = async (payload: CreatePagoPayload): Promise<boolean> => {
+    if (!selectedTourId) {
+      setErrorMessage("Seleccioná un tour antes de registrar un pago.");
+      return false;
+    }
+    if (isSubmittingPago) {
+      return false;
+    }
+    if (!payload.inscripcionId) {
+      setErrorMessage("Seleccioná una inscripción válida.");
+      return false;
+    }
+    if (!Number.isFinite(payload.monto) || payload.monto <= 0) {
+      setErrorMessage("El monto del pago debe ser mayor a 0.");
+      return false;
+    }
+    if (!payload.metodoPagoId) {
+      setErrorMessage("Seleccioná un método de pago.");
       return false;
     }
     const inscripcion = inscripciones.find((item) => item.id === payload.inscripcionId);
     if (!inscripcion) {
+      setErrorMessage("No se encontró la inscripción seleccionada.");
       return false;
     }
     try {
@@ -215,7 +281,7 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
         tourId: selectedTourId,
         vagoId: inscripcion.vagoId,
         monto: payload.monto,
-        metodoPago: payload.metodoPago,
+        metodoPago: payload.metodoPagoNombre ?? "Sin especificar",
         metodoPagoId: payload.metodoPagoId,
         fecha: new Date(),
         registradoPor: payload.registradoPor,
@@ -241,18 +307,20 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
     pagos,
     metodosPagoCatalog,
     selectedTourId,
-    paymentInscripcionId,
     errorMessage,
     hasMoreTours,
     isLoadingMoreTours,
     isSubmittingInscripcion,
     isSubmittingPago,
     setSelectedTourId,
-    setPaymentInscripcionId,
     setErrorMessage,
     reloadTours,
     loadMoreTours,
-    createInscripcion,
+    createInscripcionConPagoInicial,
     createPago,
   };
 }
+
+// `resolveEstadoPago` se exporta para que la UI pueda mostrar al usuario el
+// estado calculado antes de enviar el formulario.
+export { resolveEstadoPago };

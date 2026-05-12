@@ -12,7 +12,7 @@ export interface Transporte extends SoftDeleteFields {
   anio?: number;
   placa: string;
   capacidad: number;
-  costoPorTour: number;
+  costoPorTour?: number;
   activo: boolean;
   creadoEn?: Date;
 }

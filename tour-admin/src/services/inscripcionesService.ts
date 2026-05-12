@@ -38,7 +38,7 @@ export const inscripcionesService = {
     montoTotal: number,
     userId: string,
     cupoMaximo: number,
-  ): Promise<void> {
+  ): Promise<string> {
     const ref = collection(db, "tours", tourId, "inscripciones");
     const activas = await this.countActivas(tourId);
     if (activas >= cupoMaximo) {
@@ -48,7 +48,7 @@ export const inscripcionesService = {
     if (!duplicate.empty) {
       throw new ServiceError("El vago ya está inscrito en esta ocurrencia.");
     }
-    await addDoc(ref, {
+    const created = await addDoc(ref, {
       vagoId: vago.id,
       vagoNombre: `${vago.nombre} ${vago.apellido}`,
       vagoEmail: vago.email,
@@ -60,6 +60,7 @@ export const inscripcionesService = {
       inscritoEn: serverTimestamp(),
       inscritoPor: userId,
     });
+    return created.id;
   },
   async updatePaymentState(
     tourId: string,

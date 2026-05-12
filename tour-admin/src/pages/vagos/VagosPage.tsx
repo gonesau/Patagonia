@@ -3,6 +3,7 @@ import type { QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { AlertMessage } from "@/components/ui/AlertMessage";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -30,6 +31,7 @@ const defaultValues: VagoFormValues = {
   telefono: "",
   telefonoWhatsapp: "",
   dui: "",
+  genero: "",
   fechaNacimiento: "",
   contactoEmergenciaNombre: "",
   contactoEmergenciaRelacionId: "",
@@ -41,16 +43,39 @@ const defaultValues: VagoFormValues = {
   notasInternas: "",
 };
 
-function toDateInputValue(value: Date | undefined): string {
+function toDateInputValue(value: any): string {
   if (!value) {
     return "";
   }
-  const d = value instanceof Date ? value : new Date(value);
+  let d: Date;
+  if (typeof value.toDate === "function") {
+    d = value.toDate();
+  } else {
+    d = value instanceof Date ? value : new Date(value);
+  }
   if (Number.isNaN(d.getTime())) {
     return "";
   }
   const pad = (n: number) => n.toString().padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function calculateAge(value: any): string {
+  if (!value) return "N/A";
+  let d: Date;
+  if (typeof value.toDate === "function") {
+    d = value.toDate();
+  } else {
+    d = value instanceof Date ? value : new Date(value);
+  }
+  if (Number.isNaN(d.getTime())) return "N/A";
+  const today = new Date();
+  let age = today.getFullYear() - d.getFullYear();
+  const m = today.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) {
+    age--;
+  }
+  return age.toString();
 }
 const SEARCH_DEBOUNCE_MS = 300;
 const VAGOS_PAGE_SIZE = 20;
@@ -196,6 +221,7 @@ export function VagosPage() {
       telefono: formatPhone(vago.telefono),
       telefonoWhatsapp: vago.telefonoWhatsapp ? formatPhone(vago.telefonoWhatsapp) : "",
       dui: vago.dui ? formatDui(vago.dui) : "",
+      genero: vago.genero ?? "",
       fechaNacimiento: toDateInputValue(vago.fechaNacimiento),
       contactoEmergenciaNombre: vago.contactoEmergenciaNombre,
       contactoEmergenciaRelacionId: vago.contactoEmergenciaRelacionId ?? "",
@@ -315,22 +341,22 @@ export function VagosPage() {
           </div>
           <Button onClick={openCreateModal}>Agregar vago</Button>
         </div>
-        {errorMessage ? <p className="mb-3 text-sm text-danger">{errorMessage}</p> : null}
-        {successMessage ? <p className="mb-3 text-sm text-success">{successMessage}</p> : null}
+        {errorMessage && !isFormModalOpen ? <AlertMessage type="error" message={errorMessage} className="mb-3" /> : null}
+        {successMessage ? <AlertMessage type="success" message={successMessage} className="mb-3" /> : null}
         {isLoading ? (
           <p className="text-sm text-neutral">Cargando vagos...</p>
         ) : (
           <>
             <Table
               emptyMessage="No hay vagos registrados."
-              headers={["Nombre", "Teléfono", "Email", "Estado", "Acciones"]}
+              headers={["Nombre", "Teléfono", "Email", "Edad", "Acciones"]}
               rows={vagos.map((vago) => ({
                 key: vago.id,
                 cells: [
                   `${vago.nombre} ${vago.apellido}`,
                   formatPhone(vago.telefono),
                   vago.email,
-                  vago.activo ? "Activo" : "Inactivo",
+                  calculateAge(vago.fechaNacimiento),
                   <div key={`actions-${vago.id}`} className="flex flex-wrap gap-2">
                     <Button type="button" variant="ghost" onClick={() => void openHistorial(vago)}>
                       Historial
@@ -352,6 +378,10 @@ export function VagosPage() {
       </Card>
       <Modal isOpen={isFormModalOpen} onClose={closeFormModal} size="lg" title={selectedVago ? "Editar vago" : "Agregar vago"}>
         <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
+          {/* Error dentro del modal para no tapar el contenido */}
+          {errorMessage && isFormModalOpen ? (
+            <AlertMessage type="error" message={errorMessage} />
+          ) : null}
           <div className="grid gap-3 md:grid-cols-2">
             <Input label="Nombre" {...form.register("nombre")} error={form.formState.errors.nombre?.message} />
             <Input label="Apellido" {...form.register("apellido")} error={form.formState.errors.apellido?.message} />
@@ -364,6 +394,15 @@ export function VagosPage() {
               error={form.formState.errors.telefonoWhatsapp?.message}
             />
             <Input label="DUI (opcional)" mask={formatDui} {...form.register("dui")} error={form.formState.errors.dui?.message} />
+            <label className="flex flex-col gap-1 text-sm">
+              <span>Género (opcional)</span>
+              <select className="rounded-md border border-border px-3 py-2" {...form.register("genero")}>
+                <option value="">Seleccionar...</option>
+                <option value="masculino">Masculino</option>
+                <option value="femenino">Femenino</option>
+                <option value="otro">Otro</option>
+              </select>
+            </label>
             <Input label="Fecha de nacimiento" type="date" {...form.register("fechaNacimiento")} />
             <Input
               label="Contacto de emergencia"
