@@ -1,8 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
-import { UserPlus } from "lucide-react";
-import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { Autocomplete, type AutocompleteOption } from "@/components/ui/Autocomplete";
 import { AlertMessage } from "@/components/ui/AlertMessage";
 import { vagosService } from "@/services/vagosService";
@@ -20,7 +19,9 @@ export interface InscripcionPanelSubmitPayload {
   } | null;
 }
 
-interface InscripcionesPanelProps {
+interface InscribirVagoModalProps {
+  isOpen: boolean;
+  onClose: () => void;
   cuposDisponibles: number;
   isSubmitting: boolean;
   isReadOnly: boolean;
@@ -49,13 +50,15 @@ function vagoToOption(vago: Vago): AutocompleteOption {
   };
 }
 
-export function InscripcionesPanel({
+export function InscribirVagoModal({
+  isOpen,
+  onClose,
   cuposDisponibles,
   isSubmitting,
   isReadOnly,
   paymentMethods,
   onSubmit,
-}: InscripcionesPanelProps) {
+}: InscribirVagoModalProps) {
   const [selectedOption, setSelectedOption] = useState<AutocompleteOption | null>(null);
   const [selectedVago, setSelectedVago] = useState<Vago | null>(null);
   const [montoTotal, setMontoTotal] = useState<number>(0);
@@ -94,6 +97,11 @@ export function InscripcionesPanel({
     setMetodoPagoId("");
     setComprobante(null);
     setLocalError(null);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
   };
 
   const estadoPago = useMemo(
@@ -136,18 +144,14 @@ export function InscripcionesPanel({
     };
     const success = await onSubmit(payload);
     if (success) {
-      resetForm();
+      handleClose();
     }
   };
 
   const disableForm = isSubmitting || isReadOnly || cuposDisponibles <= 0;
 
   return (
-    <Card>
-      <h3 className="mb-2 flex items-center gap-2 font-heading text-lg">
-        <UserPlus size={17} strokeWidth={1.8} />
-        Inscribir Vago
-      </h3>
+    <Modal isOpen={isOpen} onClose={handleClose} title="Inscribir Vago" size="md">
       <p className="mb-3 text-sm text-neutral">Cupos disponibles: {cuposDisponibles}</p>
 
       {isReadOnly ? (
@@ -239,15 +243,16 @@ export function InscripcionesPanel({
 
           {localError ? <AlertMessage message={localError} type="error" /> : null}
 
-          <Button
-            className="w-full"
-            disabled={disableForm}
-            onClick={() => void handleSubmit()}
-          >
-            {isSubmitting ? "Inscribiendo..." : "Inscribir vago"}
-          </Button>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button disabled={disableForm} variant="ghost" onClick={handleClose}>
+              Cancelar
+            </Button>
+            <Button disabled={disableForm} onClick={() => void handleSubmit()}>
+              {isSubmitting ? "Inscribiendo..." : "Inscribir vago"}
+            </Button>
+          </div>
         </div>
       )}
-    </Card>
+    </Modal>
   );
 }

@@ -60,6 +60,8 @@ interface UseToursPageStateResult {
   loadMoreTours: () => Promise<void>;
   createInscripcionConPagoInicial: (payload: CreateInscripcionConPagoPayload) => Promise<boolean>;
   createPago: (payload: CreatePagoPayload) => Promise<boolean>;
+  cancelInscripcion: (inscripcionId: string) => Promise<boolean>;
+  loadDetailData: (tourId: string) => Promise<void>;
 }
 
 function resolveEstadoPago(montoPagado: number, montoTotal: number): Inscripcion["estadoPago"] {
@@ -298,6 +300,19 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
     }
   };
 
+  const cancelInscripcion = async (inscripcionId: string): Promise<boolean> => {
+    if (!selectedTourId) return false;
+    try {
+      setErrorMessage(null);
+      await inscripcionesService.cancelInscripcion(selectedTourId, inscripcionId);
+      await loadDetailData(selectedTourId);
+      return true;
+    } catch (error) {
+      setErrorMessage(toServiceErrorMessage(error));
+      return false;
+    }
+  };
+
   return {
     tours,
     plantillas,
@@ -318,6 +333,8 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
     loadMoreTours,
     createInscripcionConPagoInicial,
     createPago,
+    cancelInscripcion,
+    loadDetailData,
   };
 }
 

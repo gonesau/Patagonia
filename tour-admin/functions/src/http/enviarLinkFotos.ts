@@ -8,9 +8,10 @@ export const enviarLinkFotos = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Debes iniciar sesión para ejecutar esta acción.");
   }
-  const { tourId, mensajePersonalizado } = request.data as {
+  const { tourId, mensajePersonalizado, inscripcionIds } = request.data as {
     tourId?: string;
     mensajePersonalizado?: string;
+    inscripcionIds?: string[];
   };
   if (!tourId) {
     throw new HttpsError("invalid-argument", "tourId es obligatorio.");
@@ -20,12 +21,17 @@ export const enviarLinkFotos = onCall(async (request) => {
   if (!tour || !tour.driveFolderUrl) {
     throw new HttpsError("failed-precondition", "La ocurrencia no tiene carpeta de Drive registrada.");
   }
-  const inscripciones = await adminDb
+  let query = adminDb
     .collection("tours")
     .doc(tourId)
     .collection("inscripciones")
-    .where("estado", "!=", "cancelado")
-    .get();
+    .where("estado", "!=", "cancelado");
+
+  if (inscripcionIds && inscripcionIds.length > 0) {
+    query = query.where("__name__", "in", inscripcionIds);
+  }
+
+  const inscripciones = await query.get();
 
   const plantillas = await getPlantillasEmailConfig();
   const htmlExtra = plantillas.linkFotosCuerpoHtml ?? "";

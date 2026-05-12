@@ -23,8 +23,9 @@ import { getEstadoTour } from "@/types/estadoTour.types";
 import type { Transporte } from "@/types/transporte.types";
 import { TourListPanel } from "./components/TourListPanel";
 import { TourOperacionesPanel } from "./components/TourOperacionesPanel";
-import { InscripcionesPanel, type InscripcionPanelSubmitPayload } from "./components/InscripcionesPanel";
-import { PagosPanel } from "./components/PagosPanel";
+import { InscribirVagoModal, type InscripcionPanelSubmitPayload } from "./components/InscribirVagoModal";
+import { VagosInscritosPanel } from "./components/VagosInscritosPanel";
+import { HistorialPagosPanel } from "./components/HistorialPagosPanel";
 import {
   RegistrarPagoModal,
   type RegistrarPagoModalSubmitPayload,
@@ -94,6 +95,8 @@ export function ToursPage() {
     loadMoreTours,
     createInscripcionConPagoInicial,
     createPago,
+    cancelInscripcion,
+    loadDetailData,
   } = useToursPageState(profile);
 
   useEffect(() => {
@@ -114,6 +117,7 @@ export function ToursPage() {
   const [selectedTourToEdit, setSelectedTourToEdit] = useState<TourOcurrencia | null>(null);
   const [tourToDelete, setTourToDelete] = useState<TourOcurrencia | null>(null);
   const [isTourModalOpen, setIsTourModalOpen] = useState<boolean>(false);
+  const [isInscribirVagoModalOpen, setIsInscribirVagoModalOpen] = useState<boolean>(false);
   const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
   const [unidadesTransporte, setUnidadesTransporte] = useState<Transporte[]>([]);
   const [transporteDisponibles, setTransporteDisponibles] = useState<Transporte[]>([]);
@@ -549,45 +553,49 @@ export function ToursPage() {
                   Ver finanzas en Reportes →
                 </Link>
               ) : null}
-              {isAdmin ? (
-                <Button
-                  className="inline-flex items-center gap-2"
-                  variant="secondary"
-                  onClick={() => void handleExportVagosPdf()}
-                  disabled={isExportingPdf}
-                >
-                  <FileDown size={16} strokeWidth={1.8} />
-                  {isExportingPdf ? "Exportando PDF..." : "Exportar PDF"}
-                </Button>
-              ) : null}
             </div>
           </div>
 
-          {/* Operaciones */}
-          {isAdmin ? (
-            <TourOperacionesPanel
-              driveFolderUrl={selectedTour?.driveFolderUrl}
-              tourId={selectedTourId}
-              onDriveFolderCreated={(url) => void handleDriveFolderCreated(url)}
-              onReloadTour={reloadTours}
-            />
-          ) : null}
+          {!isAdmin ? null : (
+            <div className="flex justify-start">
+              <Button onClick={() => setIsInscribirVagoModalOpen(true)} className="inline-flex items-center gap-2">
+                Inscribir Vago
+              </Button>
+            </div>
+          )}
 
-          {/* Inscripciones y Pagos */}
+          {/* Vagos Inscritos (Listado y acciones masivas) */}
+          <VagosInscritosPanel
+            tourId={selectedTourId}
+            inscripciones={inscripciones}
+            isReadOnly={!isAdmin}
+            isExportingPdf={isExportingPdf}
+            onRegistrarPago={(inscripcion) => setPagoInscripcionTarget(inscripcion)}
+            onDesinscribir={(inscripcionId) => cancelInscripcion(inscripcionId)}
+            onExportarPdf={handleExportVagosPdf}
+            onReloadTour={async () => {
+              await reloadTours();
+              await loadDetailData(selectedTourId);
+            }}
+          />
+
+          {/* Historial y Operaciones */}
           <div className="grid gap-4 xl:grid-cols-2">
-            <InscripcionesPanel
-              cuposDisponibles={cuposDisponibles}
-              isReadOnly={!isAdmin}
-              isSubmitting={isSubmittingInscripcion}
-              onSubmit={handleInscribirVago}
-              paymentMethods={metodosPagoCatalog}
-            />
-            <PagosPanel
-              inscripciones={inscripciones}
-              isReadOnly={!isAdmin}
-              onRegistrarPago={(inscripcion) => setPagoInscripcionTarget(inscripcion)}
+            <HistorialPagosPanel
               pagos={pagos}
+              inscripciones={inscripciones}
             />
+            {isAdmin ? (
+              <TourOperacionesPanel
+                driveFolderUrl={selectedTour?.driveFolderUrl}
+                tourId={selectedTourId}
+                onDriveFolderCreated={(url) => void handleDriveFolderCreated(url)}
+                onReloadTour={async () => {
+                  await reloadTours();
+                  await loadDetailData(selectedTourId);
+                }}
+              />
+            ) : null}
           </div>
         </div>
       ) : (
@@ -595,6 +603,16 @@ export function ToursPage() {
           Seleccioná un tour de la lista para ver sus detalles, inscripciones y pagos.
         </p>
       )}
+
+      <InscribirVagoModal
+        isOpen={isInscribirVagoModalOpen}
+        onClose={() => setIsInscribirVagoModalOpen(false)}
+        cuposDisponibles={cuposDisponibles}
+        isReadOnly={!isAdmin}
+        isSubmitting={isSubmittingInscripcion}
+        onSubmit={handleInscribirVago}
+        paymentMethods={metodosPagoCatalog}
+      />
       <Modal
         isOpen={isTourModalOpen}
         onClose={closeTourModal}

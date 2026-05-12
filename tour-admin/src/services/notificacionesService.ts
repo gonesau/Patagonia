@@ -2,14 +2,14 @@ import { httpsCallable } from "firebase/functions";
 import { functions } from "./firebase";
 
 export const notificacionesService = {
-  async sendManualReminder(tourId: string, mensajePersonalizado: string) {
+  async sendManualReminder(tourId: string, mensajePersonalizado: string, inscripcionIds?: string[]) {
     const callable = httpsCallable(functions, "enviarRecordatorioManual");
-    await callable({ tourId, mensajePersonalizado });
+    await callable({ tourId, mensajePersonalizado, inscripcionIds });
     return { ok: true };
   },
-  async sendPhotosLink(tourId: string, mensajePersonalizado: string) {
+  async sendPhotosLink(tourId: string, mensajePersonalizado: string, inscripcionIds?: string[]) {
     const callable = httpsCallable(functions, "enviarLinkFotos");
-    await callable({ tourId, mensajePersonalizado });
+    await callable({ tourId, mensajePersonalizado, inscripcionIds });
     return { ok: true };
   },
   async createDriveFolder(tourId: string) {

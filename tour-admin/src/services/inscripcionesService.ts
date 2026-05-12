@@ -70,6 +70,9 @@ export const inscripcionesService = {
   ): Promise<void> {
     await updateDoc(doc(db, "tours", tourId, "inscripciones", inscripcionId), { montoPagado, estadoPago });
   },
+  async cancelInscripcion(tourId: string, inscripcionId: string): Promise<void> {
+    await updateDoc(doc(db, "tours", tourId, "inscripciones", inscripcionId), { estado: "cancelado" });
+  },
   async listPageByTour(tourId: string, options: PaginationParams = {}): Promise<PaginatedResult<Inscripcion>> {
     const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
     const ref = collection(db, "tours", tourId, "inscripciones");
