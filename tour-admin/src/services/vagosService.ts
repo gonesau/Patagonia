@@ -62,6 +62,15 @@ export const vagosService = {
     return page.items;
   },
 
+  async getById(id: string): Promise<Vago | null> {
+    const vagoRef = doc(db, "vagos", id);
+    const snapshot = await getDoc(vagoRef);
+    if (!snapshot.exists()) {
+      return null;
+    }
+    return { id: snapshot.id, ...snapshot.data() } as Vago;
+  },
+
   async create(data: Omit<Vago, "id" | "creadoEn">): Promise<void> {
     await ensureUniqueEmail(data.email);
     await addDoc(vagosCollection, {

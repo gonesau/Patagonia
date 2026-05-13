@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Calendar } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -61,6 +62,7 @@ export function GuiasPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [estadosGuia, setEstadosGuia] = useState<EstadoGuia[]>([]);
   const [selectedGuia, setSelectedGuia] = useState<Guia | null>(null);
+  const [guiaDetail, setGuiaDetail] = useState<Guia | null>(null);
   const [guiaToDelete, setGuiaToDelete] = useState<Guia | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
   const [documentos, setDocumentos] = useState<GuiaDocumento[]>([]);
@@ -251,11 +253,11 @@ export function GuiasPage() {
               guia.email,
               formatPhone(guia.telefono),
               guia.estado,
-              <div key={`act-${guia.id}`} className="flex flex-wrap gap-2">
-                <Button type="button" variant="ghost" onClick={() => void openAgenda(guia)}>
-                  Agenda
+              <div key={`act-${guia.id}`} className="flex flex-wrap items-center gap-1">
+                <Button size="icon" type="button" variant="ghost" title="Agenda" onClick={() => void openAgenda(guia)}>
+                  <Calendar className="h-4 w-4" />
                 </Button>
-                <TableActions onDelete={() => setGuiaToDelete(guia)} onEdit={() => void openEditModal(guia)} />
+                <TableActions onDelete={() => setGuiaToDelete(guia)} onEdit={() => void openEditModal(guia)} onView={() => setGuiaDetail(guia)} />
               </div>,
             ],
           }))}
@@ -405,6 +407,59 @@ export function GuiasPage() {
           <Button variant="danger" onClick={() => void handleDelete()}>
             Eliminar
           </Button>
+        </div>
+      </Modal>
+      <Modal isOpen={Boolean(guiaDetail)} onClose={() => setGuiaDetail(null)} size="md" title="Detalles del guía">
+        {guiaDetail ? (
+          <div className="grid gap-y-4 gap-x-6 sm:grid-cols-2 text-sm text-textDark">
+            <div>
+              <p className="font-semibold text-neutral">Nombre completo</p>
+              <p>{guiaDetail.nombre} {guiaDetail.apellido}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">DUI</p>
+              <p>{formatDui(guiaDetail.dui)}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Teléfono</p>
+              <p>{formatPhone(guiaDetail.telefono)}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Email</p>
+              <p className="break-all">{guiaDetail.email}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Estado</p>
+              <p className="capitalize">{guiaDetail.estado}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Especialidad</p>
+              <p>{guiaDetail.especialidad || "—"}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Grupo Sanguíneo</p>
+              <p>{guiaDetail.grupoSanguineo || "—"}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Contacto Emergencia</p>
+              <p>{guiaDetail.contactoEmergenciaNombre} - {formatPhone(guiaDetail.contactoEmergenciaTel)}</p>
+            </div>
+            {guiaDetail.alergias ? (
+              <div className="sm:col-span-2">
+                <p className="font-semibold text-danger">Alergias</p>
+                <p className="whitespace-pre-wrap">{guiaDetail.alergias}</p>
+              </div>
+            ) : null}
+            {guiaDetail.condicionesMedicas ? (
+              <div className="sm:col-span-2">
+                <p className="font-semibold text-danger">Condiciones médicas</p>
+                <p className="whitespace-pre-wrap">{guiaDetail.condicionesMedicas}</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="mt-6 flex justify-end">
+          <Button variant="ghost" onClick={() => setGuiaDetail(null)}>Cerrar</Button>
         </div>
       </Modal>
     </>

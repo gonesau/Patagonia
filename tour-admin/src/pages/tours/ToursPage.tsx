@@ -115,6 +115,7 @@ export function ToursPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedTourToEdit, setSelectedTourToEdit] = useState<TourOcurrencia | null>(null);
   const [tourToDelete, setTourToDelete] = useState<TourOcurrencia | null>(null);
+  const [tourDetail, setTourDetail] = useState<TourOcurrencia | null>(null);
   const [isTourModalOpen, setIsTourModalOpen] = useState<boolean>(false);
   const [isInscribirVagoModalOpen, setIsInscribirVagoModalOpen] = useState<boolean>(false);
   const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
@@ -528,6 +529,7 @@ export function ToursPage() {
         onSelectTour={setSelectedTourId}
         onEditTour={openEditTourModal}
         onDeleteTour={setTourToDelete}
+        onViewTour={setTourDetail}
         onLoadMore={() => void loadMoreTours()}
       />
 
@@ -773,6 +775,71 @@ export function ToursPage() {
         onSubmit={handleRegistrarPagoModalSubmit}
         paymentMethods={metodosPagoCatalog}
       />
+      <Modal isOpen={Boolean(tourDetail)} onClose={() => setTourDetail(null)} size="md" title="Detalles del tour">
+        {tourDetail ? (
+          <div className="grid gap-y-4 gap-x-6 sm:grid-cols-2 text-sm text-textDark max-h-[70vh] overflow-y-auto pr-2">
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Nombre</p>
+              <p>{tourDetail.nombre}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Estado</p>
+              <p>{getEstadoTour(tourDetail.estado).nombre}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Precio de venta</p>
+              <p>${tourDetail.precioVenta.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Fecha de inicio</p>
+              <p>{new Date(tourDetail.fechaInicio).toLocaleString("es-SV")}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Fecha de fin</p>
+              <p>{new Date(tourDetail.fechaFin).toLocaleString("es-SV")}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Cupo Mín / Máx</p>
+              <p>{tourDetail.cupoMinimo} / {tourDetail.cupoMaximo}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Punto de encuentro</p>
+              <p>{tourDetail.puntoEncuentro || "—"}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Plantilla Base</p>
+              <p>{plantillas.find(p => p.id === tourDetail.plantillaId)?.nombre || tourDetail.plantillaId}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Guías Asignados</p>
+              <p>
+                {tourDetail.guiaIds && tourDetail.guiaIds.length > 0 
+                  ? tourDetail.guiaIds.map(gid => guias.find(g => g.id === gid)?.nombre || gid).join(", ")
+                  : tourDetail.guiaId ? (guias.find(g => g.id === tourDetail.guiaId)?.nombre || tourDetail.guiaId) : "—"}
+              </p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Transporte Asignado</p>
+              <p>{tourDetail.transporteId ? (unidadesTransporte.find(u => u.id === tourDetail.transporteId)?.placa || tourDetail.transporteId) : "—"}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Costo Transporte</p>
+              <p>${tourDetail.costoTransporte?.toFixed(2) || "0.00"}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Costos Extras</p>
+              <p>${tourDetail.costosExtras?.toFixed(2) || "0.00"}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Recordatorios Automáticos</p>
+              <p>{tourDetail.recordatoriosAutomaticosHabilitados !== false ? "Habilitados" : "Deshabilitados"}</p>
+            </div>
+          </div>
+        ) : null}
+        <div className="mt-6 flex justify-end">
+          <Button variant="ghost" onClick={() => setTourDetail(null)}>Cerrar</Button>
+        </div>
+      </Modal>
     </>
   );
 }

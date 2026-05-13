@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { History } from "lucide-react";
 import { useForm, useWatch, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -55,6 +56,7 @@ export function PlantillasPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [terrenos, setTerrenos] = useState<Terreno[]>([]);
   const [selectedPlantilla, setSelectedPlantilla] = useState<TourPlantilla | null>(null);
+  const [plantillaDetail, setPlantillaDetail] = useState<TourPlantilla | null>(null);
   const [plantillaToDelete, setPlantillaToDelete] = useState<TourPlantilla | null>(null);
   const [historialPlantilla, setHistorialPlantilla] = useState<TourPlantilla | null>(null);
   const [historialOcurrencias, setHistorialOcurrencias] = useState<Array<[string, string, string, string, string]>>([]);
@@ -268,11 +270,11 @@ export function PlantillasPage() {
               `${item.distanciaKm ? item.distanciaKm + " km" : "—"} / ${item.tiempoEstimado ?? "—"}`,
               `$${item.precioBase.toFixed(2)}`,
               item.activa ? "Activa" : "Inactiva",
-              <div key={`act-${item.id}`} className="flex flex-wrap gap-2">
-                <Button type="button" variant="ghost" onClick={() => void openHistorialPlantilla(item)}>
-                  Ocurrencias
+              <div key={`act-${item.id}`} className="flex flex-wrap items-center gap-1">
+                <Button size="icon" type="button" variant="ghost" title="Ocurrencias" onClick={() => void openHistorialPlantilla(item)}>
+                  <History className="h-4 w-4" />
                 </Button>
-                <TableActions onDelete={() => setPlantillaToDelete(item)} onEdit={() => openEditModal(item)} />
+                <TableActions onDelete={() => setPlantillaToDelete(item)} onEdit={() => openEditModal(item)} onView={() => setPlantillaDetail(item)} />
               </div>,
             ],
           }))}
@@ -447,6 +449,94 @@ export function PlantillasPage() {
           <Button variant="danger" onClick={() => void handleDelete()}>
             Eliminar
           </Button>
+        </div>
+      </Modal>
+      <Modal isOpen={Boolean(plantillaDetail)} onClose={() => setPlantillaDetail(null)} size="md" title="Detalles de la plantilla">
+        {plantillaDetail ? (
+          <div className="grid gap-y-4 gap-x-6 sm:grid-cols-2 text-sm text-textDark max-h-[70vh] overflow-y-auto pr-2">
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Nombre</p>
+              <p>{plantillaDetail.nombre}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Descripción</p>
+              <p className="whitespace-pre-wrap">{plantillaDetail.descripcion}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Dificultad</p>
+              <p>
+                {(() => {
+                  const dif = normalizarDificultadDesdeTexto(String(plantillaDetail.dificultad));
+                  return dif ? obtenerEtiquetaDificultad(dif) : String(plantillaDetail.dificultad || "—");
+                })()}
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Precio Base</p>
+              <p>${plantillaDetail.precioBase?.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Distancia</p>
+              <p>{plantillaDetail.distanciaKm ? `${plantillaDetail.distanciaKm} km` : "—"}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Tiempo Estimado</p>
+              <p>{plantillaDetail.tiempoEstimado || "—"}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Elevación</p>
+              <p>{plantillaDetail.elevacionM ? `${plantillaDetail.elevacionM} m` : "—"}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Altura Máxima</p>
+              <p>{plantillaDetail.alturaMaximaMsnm ? `${plantillaDetail.alturaMaximaMsnm} msnm` : "—"}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Estado</p>
+              <p>{plantillaDetail.activa ? "Activa" : "Inactiva"}</p>
+            </div>
+            {plantillaDetail.wikiloc ? (
+              <div className="sm:col-span-2">
+                <p className="font-semibold text-neutral">Wikiloc</p>
+                <a href={plantillaDetail.wikiloc} target="_blank" rel="noreferrer" className="text-primary underline break-all">
+                  {plantillaDetail.wikiloc}
+                </a>
+              </div>
+            ) : null}
+            {plantillaDetail.equipoRecomendado ? (
+              <div className="sm:col-span-2">
+                <p className="font-semibold text-neutral">Equipo Recomendado</p>
+                <p className="whitespace-pre-wrap">{plantillaDetail.equipoRecomendado}</p>
+              </div>
+            ) : null}
+            {plantillaDetail.queLlevar ? (
+              <div className="sm:col-span-2">
+                <p className="font-semibold text-neutral">Qué llevar</p>
+                <p className="whitespace-pre-wrap">{plantillaDetail.queLlevar}</p>
+              </div>
+            ) : null}
+            {plantillaDetail.serviciosExtras ? (
+              <div className="sm:col-span-2">
+                <p className="font-semibold text-neutral">Qué incluimos</p>
+                <p className="whitespace-pre-wrap">{plantillaDetail.serviciosExtras}</p>
+              </div>
+            ) : null}
+            {plantillaDetail.itinerarioTipo ? (
+              <div className="sm:col-span-2">
+                <p className="font-semibold text-neutral">Itinerario Tipo</p>
+                <p className="whitespace-pre-wrap">{plantillaDetail.itinerarioTipo}</p>
+              </div>
+            ) : null}
+            {plantillaDetail.politicaCancelacion ? (
+              <div className="sm:col-span-2">
+                <p className="font-semibold text-neutral">Política de cancelación</p>
+                <p className="whitespace-pre-wrap">{plantillaDetail.politicaCancelacion}</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="mt-6 flex justify-end">
+          <Button variant="ghost" onClick={() => setPlantillaDetail(null)}>Cerrar</Button>
         </div>
       </Modal>
     </>

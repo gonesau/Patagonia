@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { History } from "lucide-react";
 import type { QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -101,6 +102,7 @@ export function VagosPage() {
   const [relacionesEmergencia, setRelacionesEmergencia] = useState<RelacionEmergencia[]>([]);
   const [nivelesExperiencia, setNivelesExperiencia] = useState<NivelExperiencia[]>([]);
   const [selectedVago, setSelectedVago] = useState<Vago | null>(null);
+  const [vagoDetail, setVagoDetail] = useState<Vago | null>(null);
   const [vagoToDelete, setVagoToDelete] = useState<Vago | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
   const [historialVago, setHistorialVago] = useState<Vago | null>(null);
@@ -357,11 +359,11 @@ export function VagosPage() {
                   formatPhone(vago.telefono),
                   vago.email,
                   calculateAge(vago.fechaNacimiento),
-                  <div key={`actions-${vago.id}`} className="flex flex-wrap gap-2">
-                    <Button type="button" variant="ghost" onClick={() => void openHistorial(vago)}>
-                      Historial
+                  <div key={`actions-${vago.id}`} className="flex flex-wrap items-center gap-1">
+                    <Button size="icon" type="button" variant="ghost" title="Historial" onClick={() => void openHistorial(vago)}>
+                      <History className="h-4 w-4" />
                     </Button>
-                    <TableActions onDelete={() => setVagoToDelete(vago)} onEdit={() => openEditModal(vago)} />
+                    <TableActions onDelete={() => setVagoToDelete(vago)} onEdit={() => openEditModal(vago)} onView={() => setVagoDetail(vago)} />
                   </div>,
                 ],
               }))}
@@ -497,6 +499,65 @@ export function VagosPage() {
           <Button variant="danger" onClick={() => void handleDelete()}>
             Eliminar
           </Button>
+        </div>
+      </Modal>
+      <Modal isOpen={Boolean(vagoDetail)} onClose={() => setVagoDetail(null)} size="md" title="Detalles del vago">
+        {vagoDetail ? (
+          <div className="grid gap-y-4 gap-x-6 sm:grid-cols-2 text-sm text-textDark">
+            <div>
+              <p className="font-semibold text-neutral">Nombre completo</p>
+              <p>{vagoDetail.nombre} {vagoDetail.apellido}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">DUI</p>
+              <p>{vagoDetail.dui ? formatDui(vagoDetail.dui) : "—"}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Teléfono</p>
+              <p>{formatPhone(vagoDetail.telefono)}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">WhatsApp</p>
+              <p>{vagoDetail.telefonoWhatsapp ? formatPhone(vagoDetail.telefonoWhatsapp) : "—"}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Email</p>
+              <p className="break-all">{vagoDetail.email}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Edad / Fecha Nac.</p>
+              <p>{calculateAge(vagoDetail.fechaNacimiento)} años ({vagoDetail.fechaNacimiento ? toDateInputValue(vagoDetail.fechaNacimiento) : "—"})</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Género</p>
+              <p className="capitalize">{vagoDetail.genero || "—"}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Nivel Experiencia</p>
+              <p className="capitalize">{vagoDetail.nivelExperiencia}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Contacto Emergencia</p>
+              <p>
+                {vagoDetail.contactoEmergenciaNombre} ({vagoDetail.contactoEmergenciaRelacion}) - {formatPhone(vagoDetail.contactoEmergenciaTel)}
+              </p>
+            </div>
+            {vagoDetail.restriccionesMedicas ? (
+              <div className="sm:col-span-2">
+                <p className="font-semibold text-danger">Restricciones médicas</p>
+                <p className="whitespace-pre-wrap">{vagoDetail.restriccionesMedicas}</p>
+              </div>
+            ) : null}
+            {vagoDetail.notasInternas ? (
+              <div className="sm:col-span-2">
+                <p className="font-semibold text-neutral">Notas internas</p>
+                <p className="whitespace-pre-wrap">{vagoDetail.notasInternas}</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="mt-6 flex justify-end">
+          <Button variant="ghost" onClick={() => setVagoDetail(null)}>Cerrar</Button>
         </div>
       </Modal>
     </>

@@ -16,6 +16,7 @@ interface TourListPanelProps {
   onEditTour: (tour: TourOcurrencia) => void;
   onDeleteTour: (tour: TourOcurrencia) => void;
   onDuplicateTour?: (tour: TourOcurrencia) => void;
+  onViewTour?: (tour: TourOcurrencia) => void;
   onLoadMore: () => void;
 }
 
@@ -29,6 +30,7 @@ export function TourListPanel({
   onEditTour,
   onDeleteTour,
   onDuplicateTour,
+  onViewTour,
   onLoadMore,
 }: TourListPanelProps) {
   return (
@@ -76,6 +78,7 @@ export function TourListPanel({
                   onSelectTour(tour.id);
                   onEditTour(tour);
                 }}
+                onView={onViewTour ? () => onViewTour(tour) : undefined}
               />
             ) : (
               <span key={`ro-${tour.id}`} className="text-xs text-neutral">

@@ -39,6 +39,7 @@ export function TransportePage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [tiposVehiculo, setTiposVehiculo] = useState<TipoVehiculo[]>([]);
   const [selectedUnidad, setSelectedUnidad] = useState<Transporte | null>(null);
+  const [unidadDetail, setUnidadDetail] = useState<Transporte | null>(null);
   const [unidadToDelete, setUnidadToDelete] = useState<Transporte | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
   const form = useForm<TransporteFormValues>({
@@ -158,7 +159,7 @@ export function TransportePage() {
               item.placa,
               item.capacidad,
               item.activo ? "Activa" : "Inactiva",
-              <TableActions key={`actions-${item.id}`} onDelete={() => setUnidadToDelete(item)} onEdit={() => openEditModal(item)} />,
+              <TableActions key={`actions-${item.id}`} onDelete={() => setUnidadToDelete(item)} onEdit={() => openEditModal(item)} onView={() => setUnidadDetail(item)} />,
             ],
           }))}
         />
@@ -235,6 +236,47 @@ export function TransportePage() {
           <Button variant="danger" onClick={() => void handleDelete()}>
             Eliminar
           </Button>
+        </div>
+      </Modal>
+      <Modal isOpen={Boolean(unidadDetail)} onClose={() => setUnidadDetail(null)} size="md" title="Detalles del transporte">
+        {unidadDetail ? (
+          <div className="grid gap-y-4 gap-x-6 sm:grid-cols-2 text-sm text-textDark">
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Empresa</p>
+              <p>{unidadDetail.empresa}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Tipo de vehículo</p>
+              <p>{unidadDetail.tipoVehiculoNombreSnapshot || "—"}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Capacidad</p>
+              <p>{unidadDetail.capacidad} pasajeros</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Marca</p>
+              <p>{unidadDetail.marca}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Modelo / Año</p>
+              <p>{unidadDetail.modelo} {unidadDetail.anio ? `(${unidadDetail.anio})` : ""}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Placa</p>
+              <p>{formatPlate(unidadDetail.placa)}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Estado</p>
+              <p className="capitalize">{unidadDetail.activo ? "Activa" : "Inactiva"}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Motorista</p>
+              <p>{unidadDetail.motorista} - {unidadDetail.telefonoMotorista ? formatPhone(unidadDetail.telefonoMotorista) : "—"}</p>
+            </div>
+          </div>
+        ) : null}
+        <div className="mt-6 flex justify-end">
+          <Button variant="ghost" onClick={() => setUnidadDetail(null)}>Cerrar</Button>
         </div>
       </Modal>
     </>

@@ -6,8 +6,28 @@ import { Table } from "@/components/ui/Table";
 import { Modal } from "@/components/ui/Modal";
 import type { Inscripcion } from "@/types/inscripcion.types";
 import { notificacionesService } from "@/services/notificacionesService";
-import { toServiceErrorMessage } from "@/services/serviceErrors";
+import { vagosService } from "@/services/vagosService";
+import type { Vago } from "@/types/vago.types";
 import { AlertMessage } from "@/components/ui/AlertMessage";
+import { toServiceErrorMessage } from "@/services/serviceErrors";
+
+function calculateAge(value: any): string {
+  if (!value) return "N/A";
+  let d: Date;
+  if (typeof value.toDate === "function") {
+    d = value.toDate();
+  } else {
+    d = value instanceof Date ? value : new Date(value);
+  }
+  if (Number.isNaN(d.getTime())) return "N/A";
+  const today = new Date();
+  let age = today.getFullYear() - d.getFullYear();
+  const m = today.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) {
+    age--;
+  }
+  return age.toString();
+}
 
 
 interface VagosInscritosPanelProps {
@@ -40,6 +60,25 @@ export function VagosInscritosPanel({
   const [photosBody, setPhotosBody] = useState("Aquí tienes el enlace a las fotografías del tour.");
   const [isSending, setIsSending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedVagoDetail, setSelectedVagoDetail] = useState<Vago | null>(null);
+  const [isLoadingVago, setIsLoadingVago] = useState(false);
+
+  const handleViewVago = async (vagoId: string) => {
+    setIsLoadingVago(true);
+    setErrorMessage(null);
+    try {
+      const vago = await vagosService.getById(vagoId);
+      if (vago) {
+        setSelectedVagoDetail(vago);
+      } else {
+        setErrorMessage("No se encontró la información del vago.");
+      }
+    } catch (error) {
+      setErrorMessage(toServiceErrorMessage(error));
+    } finally {
+      setIsLoadingVago(false);
+    }
+  };
 
   const activas = useMemo(
     () => inscripciones.filter((item) => item.estado !== "cancelado"),
@@ -166,7 +205,15 @@ export function VagosInscritosPanel({
                 checked={selectedIds.has(item.id)}
                 onChange={(e) => handleSelectRow(item.id, e.target.checked)}
               />,
-              item.vagoNombre,
+              <button
+                type="button"
+                className={`text-left ${isLoadingVago ? 'opacity-50' : 'font-semibold text-[#0d6efd] underline-offset-2 hover:underline'}`}
+                onClick={() => void handleViewVago(item.vagoId)}
+                title="Ver detalles del vago"
+                disabled={isLoadingVago}
+              >
+                {item.vagoNombre}
+              </button>,
               item.vagoTelefono || "—",
               item.vagoEmail || "—",
               `$${item.montoTotal.toFixed(2)}`,
@@ -253,6 +300,58 @@ export function VagosInscritosPanel({
           <Button type="button" disabled={isSending} onClick={() => void handleSendPhotos()}>
             {isSending ? "Enviando..." : "Enviar"}
           </Button>
+        </div>
+      </Modal>
+
+      <Modal isOpen={Boolean(selectedVagoDetail)} onClose={() => setSelectedVagoDetail(null)} size="md" title="Detalles del vago">
+        {selectedVagoDetail ? (
+          <div className="grid gap-y-4 gap-x-6 sm:grid-cols-2 text-sm text-textDark max-h-[70vh] overflow-y-auto pr-2">
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Nombre Completo</p>
+              <p>{selectedVagoDetail.nombre} {selectedVagoDetail.apellido}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">DUI</p>
+              <p>{selectedVagoDetail.dui || "—"}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Género</p>
+              <p>{selectedVagoDetail.genero || "—"}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Edad</p>
+              <p>{selectedVagoDetail.fechaNacimiento ? calculateAge(selectedVagoDetail.fechaNacimiento) : "—"}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Nivel de Experiencia</p>
+              <p>{selectedVagoDetail.nivelExperiencia || selectedVagoDetail.nivelExperienciaId || "—"}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Email</p>
+              <p>{selectedVagoDetail.email}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Teléfono</p>
+              <p>{selectedVagoDetail.telefono}</p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Contacto de Emergencia</p>
+              <p>{selectedVagoDetail.contactoEmergenciaNombre ? `${selectedVagoDetail.contactoEmergenciaNombre} - ${selectedVagoDetail.contactoEmergenciaTel}` : "—"}</p>
+            </div>
+            {selectedVagoDetail.restriccionesMedicas ? (
+              <div className="sm:col-span-2">
+                <p className="font-semibold text-neutral">Restricciones Médicas</p>
+                <p className="whitespace-pre-wrap">{selectedVagoDetail.restriccionesMedicas}</p>
+              </div>
+            ) : null}
+            <div className="sm:col-span-2">
+              <p className="font-semibold text-neutral">Notas Internas</p>
+              <p className="whitespace-pre-wrap">{selectedVagoDetail.notasInternas || "—"}</p>
+            </div>
+          </div>
+        ) : null}
+        <div className="mt-6 flex justify-end">
+          <Button variant="ghost" onClick={() => setSelectedVagoDetail(null)}>Cerrar</Button>
         </div>
       </Modal>
     </Card>
