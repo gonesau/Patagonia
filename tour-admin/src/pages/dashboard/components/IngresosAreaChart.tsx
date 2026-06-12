@@ -1,4 +1,5 @@
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useIsMobile } from "@/hooks/useBreakpoint";
 import type { MonthlySeries } from "@/services/dashboardService";
 
 interface Props {
@@ -6,6 +7,7 @@ interface Props {
 }
 
 export function IngresosAreaChart({ data }: Props) {
+  const isMobile = useIsMobile();
   if (data.length === 0) {
     return <p className="py-8 text-center text-sm text-neutral">Sin datos en el período</p>;
   }
@@ -25,7 +27,7 @@ export function IngresosAreaChart({ data }: Props) {
           axisLine={false}
           tickLine={false}
           tickFormatter={(v) => { const n = Number(v ?? 0); return `$${n >= 1000 ? `${(n / 1000).toFixed(1)}k` : n}`; }}
-          width={52}
+          width={isMobile ? 40 : 52}
         />
         <Tooltip
           contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #d0e8e5", color: "#1a2e2c" }}

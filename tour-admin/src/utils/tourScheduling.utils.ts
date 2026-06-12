@@ -49,6 +49,7 @@ export function plantillaSnapshotForTour(plantilla: TourPlantilla | undefined): 
     distanciaKm: plantilla.distanciaKm,
     elevacionM: plantilla.elevacionM,
     dificultad: plantilla.dificultad,
+    categoria: plantilla.categoria,
     wikiloc: plantilla.wikiloc,
     equipoRecomendado: plantilla.equipoRecomendado,
     queLlevar: plantilla.queLlevar,

@@ -39,7 +39,7 @@ const defaultValues: VagoFormValues = {
   contactoEmergenciaRelacion: "",
   contactoEmergenciaTel: "",
   nivelExperienciaId: "",
-  nivelExperiencia: "principiante",
+  nivelExperiencia: "",
   restriccionesMedicas: "",
   notasInternas: "",
 };
@@ -220,7 +220,7 @@ export function VagosPage() {
       nombre: vago.nombre,
       apellido: vago.apellido,
       email: vago.email,
-      telefono: formatPhone(vago.telefono),
+      telefono: vago.telefono ? formatPhone(vago.telefono) : "",
       telefonoWhatsapp: vago.telefonoWhatsapp ? formatPhone(vago.telefonoWhatsapp) : "",
       dui: vago.dui ? formatDui(vago.dui) : "",
       genero: vago.genero ?? "",
@@ -228,7 +228,7 @@ export function VagosPage() {
       contactoEmergenciaNombre: vago.contactoEmergenciaNombre,
       contactoEmergenciaRelacionId: vago.contactoEmergenciaRelacionId ?? "",
       contactoEmergenciaRelacion: vago.contactoEmergenciaRelacion,
-      contactoEmergenciaTel: formatPhone(vago.contactoEmergenciaTel),
+      contactoEmergenciaTel: vago.contactoEmergenciaTel ? formatPhone(vago.contactoEmergenciaTel) : "",
       nivelExperienciaId: vago.nivelExperienciaId ?? "",
       nivelExperiencia: vago.nivelExperiencia,
       restriccionesMedicas: vago.restriccionesMedicas ?? "",
@@ -253,13 +253,19 @@ export function VagosPage() {
           : undefined;
       const normalizedValues = {
         ...values,
-        telefono: normalizePhone(values.telefono),
+        email: values.email?.trim() || undefined,
+        telefono: values.telefono?.trim() ? normalizePhone(values.telefono) : undefined,
         telefonoWhatsapp: values.telefonoWhatsapp?.trim()
           ? normalizePhone(values.telefonoWhatsapp)
           : undefined,
         dui: values.dui?.trim() ? normalizeDui(values.dui) : undefined,
         fechaNacimiento,
-        contactoEmergenciaTel: normalizePhone(values.contactoEmergenciaTel),
+        contactoEmergenciaNombre: values.contactoEmergenciaNombre?.trim() || undefined,
+        contactoEmergenciaRelacion: values.contactoEmergenciaRelacion?.trim() || undefined,
+        contactoEmergenciaTel: values.contactoEmergenciaTel?.trim()
+          ? normalizePhone(values.contactoEmergenciaTel)
+          : undefined,
+        nivelExperiencia: values.nivelExperiencia?.trim() || undefined,
       };
       if (selectedVago) {
         await vagosService.update(selectedVago.id, normalizedValues);
@@ -356,8 +362,8 @@ export function VagosPage() {
                 key: vago.id,
                 cells: [
                   `${vago.nombre} ${vago.apellido}`,
-                  formatPhone(vago.telefono),
-                  vago.email,
+                  vago.telefono ? formatPhone(vago.telefono) : "—",
+                  vago.email ?? "—",
                   calculateAge(vago.fechaNacimiento),
                   <div key={`actions-${vago.id}`} className="flex flex-wrap items-center gap-1">
                     <Button size="icon" type="button" variant="ghost" title="Historial" onClick={() => void openHistorial(vago)}>
@@ -378,7 +384,13 @@ export function VagosPage() {
           </>
         )}
       </Card>
-      <Modal isOpen={isFormModalOpen} onClose={closeFormModal} size="lg" title={selectedVago ? "Editar vago" : "Agregar vago"}>
+      <Modal
+        isOpen={isFormModalOpen}
+        onClose={closeFormModal}
+        size="lg"
+        fullScreenOnMobile
+        title={selectedVago ? "Editar vago" : "Agregar vago"}
+      >
         <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
           {/* Error dentro del modal para no tapar el contenido */}
           {errorMessage && isFormModalOpen ? (
@@ -387,8 +399,17 @@ export function VagosPage() {
           <div className="grid gap-3 md:grid-cols-2">
             <Input label="Nombre" {...form.register("nombre")} error={form.formState.errors.nombre?.message} />
             <Input label="Apellido" {...form.register("apellido")} error={form.formState.errors.apellido?.message} />
-            <Input label="Email" {...form.register("email")} error={form.formState.errors.email?.message} />
-            <Input label="Teléfono" mask={formatPhone} {...form.register("telefono")} error={form.formState.errors.telefono?.message} />
+            <Input
+              label="Email (teléfono o email requerido)"
+              {...form.register("email")}
+              error={form.formState.errors.email?.message}
+            />
+            <Input
+              label="Teléfono (teléfono o email requerido)"
+              mask={formatPhone}
+              {...form.register("telefono")}
+              error={form.formState.errors.telefono?.message}
+            />
             <Input
               label="WhatsApp (opcional)"
               mask={formatPhone}
@@ -407,13 +428,13 @@ export function VagosPage() {
             </label>
             <Input label="Fecha de nacimiento" type="date" {...form.register("fechaNacimiento")} />
             <Input
-              label="Contacto de emergencia"
+              label="Contacto de emergencia (opcional)"
               {...form.register("contactoEmergenciaNombre")}
               error={form.formState.errors.contactoEmergenciaNombre?.message}
             />
             <input type="hidden" {...form.register("contactoEmergenciaRelacion")} />
             <label className="flex flex-col gap-1 text-sm">
-              <span>Relación contacto emergencia</span>
+              <span>Relación contacto emergencia (opcional)</span>
               <select
                 className="rounded-md border border-border px-3 py-2"
                 value={selectedRelationId}
@@ -432,13 +453,13 @@ export function VagosPage() {
               </select>
             </label>
             <Input
-              label="Teléfono emergencia"
+              label="Teléfono emergencia (opcional)"
               mask={formatPhone}
               {...form.register("contactoEmergenciaTel")}
               error={form.formState.errors.contactoEmergenciaTel?.message}
             />
             <label className="flex flex-col gap-1 text-sm">
-              <span>Nivel de experiencia</span>
+              <span>Nivel de experiencia (opcional)</span>
               <select
                 className="rounded-md border border-border px-3 py-2"
                 value={selectedExperienceId}
@@ -479,12 +500,14 @@ export function VagosPage() {
         isOpen={Boolean(historialVago)}
         onClose={() => setHistorialVago(null)}
         size="lg"
+        fullScreenOnMobile
         title={historialVago ? `Historial — ${historialVago.nombre} ${historialVago.apellido}` : "Historial"}
       >
         {isHistorialLoading ? <p className="text-sm text-neutral">Cargando...</p> : null}
         <Table
           emptyMessage="No hay inscripciones registradas."
           headers={["Tour", "Fecha tour", "Monto total", "Pagado", "Saldo", "Estado pago"]}
+          mobilePageSize={5}
           rows={historialRows}
         />
       </Modal>
@@ -514,7 +537,7 @@ export function VagosPage() {
             </div>
             <div>
               <p className="font-semibold text-neutral">Teléfono</p>
-              <p>{formatPhone(vagoDetail.telefono)}</p>
+              <p>{vagoDetail.telefono ? formatPhone(vagoDetail.telefono) : "—"}</p>
             </div>
             <div>
               <p className="font-semibold text-neutral">WhatsApp</p>
@@ -522,7 +545,7 @@ export function VagosPage() {
             </div>
             <div className="sm:col-span-2">
               <p className="font-semibold text-neutral">Email</p>
-              <p className="break-all">{vagoDetail.email}</p>
+              <p className="break-all">{vagoDetail.email ?? "—"}</p>
             </div>
             <div>
               <p className="font-semibold text-neutral">Edad / Fecha Nac.</p>
@@ -534,12 +557,16 @@ export function VagosPage() {
             </div>
             <div className="sm:col-span-2">
               <p className="font-semibold text-neutral">Nivel Experiencia</p>
-              <p className="capitalize">{vagoDetail.nivelExperiencia}</p>
+              <p className="capitalize">{vagoDetail.nivelExperiencia ?? "—"}</p>
             </div>
             <div className="sm:col-span-2">
               <p className="font-semibold text-neutral">Contacto Emergencia</p>
               <p>
-                {vagoDetail.contactoEmergenciaNombre} ({vagoDetail.contactoEmergenciaRelacion}) - {formatPhone(vagoDetail.contactoEmergenciaTel)}
+                {vagoDetail.contactoEmergenciaNombre || vagoDetail.contactoEmergenciaTel
+                  ? `${vagoDetail.contactoEmergenciaNombre ?? "—"} (${vagoDetail.contactoEmergenciaRelacion ?? "—"}) - ${
+                      vagoDetail.contactoEmergenciaTel ? formatPhone(vagoDetail.contactoEmergenciaTel) : "—"
+                    }`
+                  : "—"}
               </p>
             </div>
             {vagoDetail.restriccionesMedicas ? (

@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { Users, Mail, ImageIcon, FileDown, UserMinus } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Table } from "@/components/ui/Table";
+import { DataCard } from "@/components/ui/DataCard";
+import { Table, type TableRow } from "@/components/ui/Table";
 import { Modal } from "@/components/ui/Modal";
 import type { Inscripcion } from "@/types/inscripcion.types";
 import { notificacionesService } from "@/services/notificacionesService";
@@ -93,6 +94,19 @@ export function VagosInscritosPanel({
     }
   };
 
+  const handleSelectVisibleRows = (visibleRowKeys: string[], checked: boolean) => {
+    const nextSelected = new Set(selectedIds);
+    if (checked) {
+      visibleRowKeys.forEach((id) => nextSelected.add(id));
+    } else {
+      visibleRowKeys.forEach((id) => nextSelected.delete(id));
+    }
+    setSelectedIds(nextSelected);
+  };
+
+  const isPageFullySelected = (visibleRowKeys: string[]) =>
+    visibleRowKeys.length > 0 && visibleRowKeys.every((id) => selectedIds.has(id));
+
   const handleSelectRow = (id: string, checked: boolean) => {
     const newSelected = new Set(selectedIds);
     if (checked) {
@@ -179,6 +193,19 @@ export function VagosInscritosPanel({
 
       <Table
         emptyMessage="Aún no hay vagos inscritos en este tour."
+        mobilePageSize={8}
+        renderMobileToolbar={(visibleRowKeys) =>
+          !isReadOnly && visibleRowKeys.length > 0 ? (
+            <label className="flex items-center gap-2 rounded-md border border-border bg-slate-50 px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                checked={isPageFullySelected(visibleRowKeys)}
+                onChange={(event) => handleSelectVisibleRows(visibleRowKeys, event.target.checked)}
+              />
+              <span>Seleccionar todos en esta página ({visibleRowKeys.length})</span>
+            </label>
+          ) : null
+        }
         headers={[
           <input
             type="checkbox"
@@ -194,6 +221,76 @@ export function VagosInscritosPanel({
           "Pendiente",
           "Acciones",
         ]}
+        renderMobileCard={(row: TableRow) => {
+          const item = activas.find((inscripcion) => inscripcion.id === row.key);
+          if (!item) {
+            return null;
+          }
+          const saldo = Math.max(0, item.montoTotal - item.montoPagado);
+          const hasSaldo = saldo > 0.01;
+          return (
+            <DataCard
+              key={item.id}
+              leading={
+                !isReadOnly ? (
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(item.id)}
+                    onChange={(event) => handleSelectRow(item.id, event.target.checked)}
+                  />
+                ) : undefined
+              }
+              title={
+                <button
+                  type="button"
+                  className={`text-left ${isLoadingVago ? "opacity-50" : "font-semibold text-[#0d6efd] underline-offset-2 hover:underline"}`}
+                  onClick={() => void handleViewVago(item.vagoId)}
+                  disabled={isLoadingVago}
+                >
+                  {item.vagoNombre}
+                </button>
+              }
+              fields={[
+                { label: "Teléfono", value: item.vagoTelefono || "—" },
+                { label: "Email", value: item.vagoEmail || "—" },
+                { label: "Total", value: `$${item.montoTotal.toFixed(2)}` },
+                { label: "Pagado", value: `$${item.montoPagado.toFixed(2)}` },
+                {
+                  label: "Pendiente",
+                  value: (
+                    <span className={hasSaldo ? "font-medium text-danger" : "text-neutral"}>
+                      ${saldo.toFixed(2)}
+                    </span>
+                  ),
+                },
+              ]}
+              actions={
+                <div className="flex w-full flex-col gap-2 sm:flex-row">
+                  <Button
+                    className="min-h-11 w-full sm:w-auto"
+                    disabled={isReadOnly || !hasSaldo}
+                    onClick={() => onRegistrarPago(item)}
+                    type="button"
+                    variant="secondary"
+                  >
+                    Registrar Pago
+                  </Button>
+                  {!isReadOnly ? (
+                    <Button
+                      className="min-h-11 w-full sm:w-auto"
+                      onClick={() => void handleDelete(item)}
+                      type="button"
+                      variant="ghost"
+                    >
+                      <UserMinus size={16} className="mr-1 inline" />
+                      Desinscribir
+                    </Button>
+                  ) : null}
+                </div>
+              }
+            />
+          );
+        }}
         rows={activas.map((item) => {
           const saldo = Math.max(0, item.montoTotal - item.montoPagado);
           const hasSaldo = saldo > 0.01;

@@ -143,7 +143,7 @@ export function TransportePage() {
     <>
       <PageHeader title="Gestión de Transporte" description="Registro de flota y disponibilidad de vehículos." />
       <Card>
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="font-heading text-lg">Listado de unidades</h3>
           <Button onClick={openCreateModal}>Agregar unidad</Button>
         </div>
@@ -164,7 +164,13 @@ export function TransportePage() {
           }))}
         />
       </Card>
-      <Modal isOpen={isFormModalOpen} onClose={closeFormModal} size="lg" title={selectedUnidad ? "Editar unidad" : "Agregar unidad"}>
+      <Modal
+        isOpen={isFormModalOpen}
+        onClose={closeFormModal}
+        size="lg"
+        fullScreenOnMobile
+        title={selectedUnidad ? "Editar unidad" : "Agregar unidad"}
+      >
         <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
           <div className="grid gap-3 md:grid-cols-2">
             <Input label="Empresa" {...form.register("empresa")} error={form.formState.errors.empresa?.message} />

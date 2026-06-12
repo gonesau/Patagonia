@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/Card";
+import { Table } from "@/components/ui/Table";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { getDashboardMetrics, type DashboardMetrics, type PeriodFilter } from "@/services/dashboardService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
@@ -256,44 +257,35 @@ export function DashboardPage() {
             <h2 className="font-heading text-sm font-semibold uppercase tracking-wide">Próximos tours (30 días)</h2>
           </div>
           <p className="mb-4 text-xs text-neutral">Cupos y estado de cada tour que inicia en los próximos 30 días.</p>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-border text-neutral">
-                  <th className="py-2 pr-3 font-medium">Tour</th>
-                  <th className="py-2 pr-3 font-medium">Fecha inicio</th>
-                  <th className="py-2 pr-3 font-medium">Estado</th>
-                  <th className="py-2 pr-3 font-medium">Cupos</th>
-                  <th className="py-2 pr-3 font-medium">Ocupación</th>
-                  <th className="py-2 font-medium" />
-                </tr>
-              </thead>
-              <tbody>
-                {metrics.upcomingTours.map((row) => {
-                  const pct = row.cupoMaximo > 0 ? Math.round((row.inscritosActivos / row.cupoMaximo) * 100) : 0;
-                  const pctColor = pct >= 90 ? "text-danger" : pct >= 70 ? "text-warning" : "text-primary";
-                  return (
-                    <tr key={row.id} className="border-b border-border/80">
-                      <td className="py-2 pr-3 text-textDark">{row.nombre}</td>
-                      <td className="py-2 pr-3 font-mono text-xs text-textDark">
-                        {row.fechaInicio.toLocaleString("es-SV")}
-                      </td>
-                      <td className="py-2 pr-3 text-textDark">{row.estado}</td>
-                      <td className="py-2 pr-3 text-textDark">
-                        {row.inscritosActivos} / {row.cupoMaximo}
-                      </td>
-                      <td className={`py-2 pr-3 font-mono text-xs font-semibold ${pctColor}`}>{pct}%</td>
-                      <td className="py-2">
-                        <Link className="text-primary underline hover:no-underline" to={`/tours?tour=${row.id}`}>
-                          Ver
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <Table
+            emptyMessage="No hay tours programados en los próximos 30 días."
+            headers={["Tour", "Fecha inicio", "Estado", "Cupos", "Ocupación", ""]}
+            rows={metrics.upcomingTours.map((row) => {
+              const pct = row.cupoMaximo > 0 ? Math.round((row.inscritosActivos / row.cupoMaximo) * 100) : 0;
+              const pctColor = pct >= 90 ? "text-danger" : pct >= 70 ? "text-warning" : "text-primary";
+              return {
+                key: row.id,
+                cells: [
+                  row.nombre,
+                  <span key={`fecha-${row.id}`} className="font-mono text-xs">
+                    {row.fechaInicio.toLocaleString("es-SV")}
+                  </span>,
+                  row.estado,
+                  `${row.inscritosActivos} / ${row.cupoMaximo}`,
+                  <span key={`pct-${row.id}`} className={`font-mono text-xs font-semibold ${pctColor}`}>
+                    {pct}%
+                  </span>,
+                  <Link
+                    key={`link-${row.id}`}
+                    className="text-primary underline hover:no-underline"
+                    to={`/tours?tour=${row.id}`}
+                  >
+                    Ver
+                  </Link>,
+                ],
+              };
+            })}
+          />
         </Card>
       ) : null}
     </>

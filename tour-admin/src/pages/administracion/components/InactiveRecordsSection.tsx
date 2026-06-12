@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { DataCard } from "@/components/ui/DataCard";
+import { Table, type TableRow } from "@/components/ui/Table";
 import { useAuth } from "@/hooks/useAuth";
 import {
   SOFT_DELETE_FIELD,
@@ -155,31 +157,28 @@ export function InactiveRecordsSection() {
         <p className="text-sm text-neutral">No hay registros inactivos en esta entidad.</p>
       ) : null}
       {!isLoading && records.length > 0 ? (
-        <div className="max-h-[520px] overflow-auto rounded-md border border-border">
-          <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-            <thead className="sticky top-0 bg-surface">
-              <tr className="border-b border-border text-xs uppercase text-neutral">
-                <th className="px-3 py-2 font-medium">Identificador</th>
-                <th className="px-3 py-2 font-medium">Descripción</th>
-                <th className="px-3 py-2 font-medium">Fecha de inactivación</th>
-                <th className="px-3 py-2 font-medium">Eliminado por</th>
-                <th className="px-3 py-2 font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((record) => (
-                <tr key={record.id} className="border-b border-border/80">
-                  <td className="px-3 py-2 text-textDark">{record.nombre}</td>
-                  <td className="px-3 py-2 text-textDark">{record.descripcion ?? "—"}</td>
-                  <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-textDark">
-                    {formatDate(record.eliminadoEn)}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs text-neutral">
-                    {record.eliminadoPor ?? "—"}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-2">
+        <div className="max-h-[520px] overflow-y-auto">
+          <Table
+            emptyMessage="No hay registros inactivos en esta entidad."
+            headers={["Identificador", "Descripción", "Fecha de inactivación", "Eliminado por", "Acciones"]}
+            renderMobileCard={(row: TableRow) => {
+              const record = records.find((item) => item.id === row.key);
+              if (!record) {
+                return null;
+              }
+              return (
+                <DataCard
+                  key={record.id}
+                  title={record.nombre}
+                  fields={[
+                    { label: "Descripción", value: record.descripcion ?? "—" },
+                    { label: "Fecha de inactivación", value: formatDate(record.eliminadoEn) },
+                    { label: "Eliminado por", value: record.eliminadoPor ?? "—" },
+                  ]}
+                  actions={
+                    <div className="flex w-full flex-col gap-2">
                       <Button
+                        className="min-h-11 w-full"
                         variant="secondary"
                         disabled={isProcessing}
                         onClick={() => setPendingAction({ type: "restore", record })}
@@ -187,6 +186,7 @@ export function InactiveRecordsSection() {
                         Reactivar
                       </Button>
                       <Button
+                        className="min-h-11 w-full"
                         variant="danger"
                         disabled={isProcessing}
                         onClick={() => setPendingAction({ type: "permanent", record })}
@@ -194,11 +194,40 @@ export function InactiveRecordsSection() {
                         Eliminar definitivamente
                       </Button>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  }
+                />
+              );
+            }}
+            rows={records.map((record) => ({
+              key: record.id,
+              cells: [
+                record.nombre,
+                record.descripcion ?? "—",
+                <span key={`fecha-${record.id}`} className="font-mono text-xs">
+                  {formatDate(record.eliminadoEn)}
+                </span>,
+                <span key={`por-${record.id}`} className="font-mono text-xs text-neutral">
+                  {record.eliminadoPor ?? "—"}
+                </span>,
+                <div key={`actions-${record.id}`} className="flex flex-wrap gap-2">
+                  <Button
+                    variant="secondary"
+                    disabled={isProcessing}
+                    onClick={() => setPendingAction({ type: "restore", record })}
+                  >
+                    Reactivar
+                  </Button>
+                  <Button
+                    variant="danger"
+                    disabled={isProcessing}
+                    onClick={() => setPendingAction({ type: "permanent", record })}
+                  >
+                    Eliminar definitivamente
+                  </Button>
+                </div>,
+              ],
+            }))}
+          />
         </div>
       ) : null}
       <Modal

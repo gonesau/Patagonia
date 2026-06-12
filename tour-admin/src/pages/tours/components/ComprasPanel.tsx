@@ -215,17 +215,17 @@ export function ComprasPanel({
           ) : null}
           {formError ? <p className="text-sm text-danger">{formError}</p> : null}
           <div className="flex flex-wrap gap-2">
-            <Button className="min-w-[140px] flex-1" onClick={() => void handleSubmit()} disabled={isSubmitting || !hasActiveCategories}>
+            <Button className="min-w-0 flex-1 sm:min-w-[140px]" onClick={() => void handleSubmit()} disabled={isSubmitting || !hasActiveCategories}>
               {isSubmitting ? "Guardando..." : isEditMode ? "Actualizar compra" : "Guardar compra"}
             </Button>
             {isEditMode ? (
-              <Button variant="ghost" className="min-w-[140px] flex-1" onClick={handleFormReset} disabled={isSubmitting}>
+              <Button variant="ghost" className="min-w-0 flex-1 sm:min-w-[140px]" onClick={handleFormReset} disabled={isSubmitting}>
                 Cancelar edición
               </Button>
             ) : (
               <Button
                 variant="ghost"
-                className="min-w-[140px] flex-1"
+                className="min-w-0 flex-1 sm:min-w-[140px]"
                 type="button"
                 onClick={() => {
                   handleFormReset();

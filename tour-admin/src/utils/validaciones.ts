@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { tourDificultadValues, type TourDificultadValue } from "./dificultad";
+import { tourCategoriaValues } from "./tourCategoria";
 import { normalizeDui, normalizePhone } from "./inputMasks";
 
 export { tourDificultadValues, type TourDificultadValue };
@@ -22,24 +23,46 @@ const optionalDuiSchema = z
   .optional()
   .refine((value) => !value || value.trim().length === 0 || normalizeDui(value).length === 9, "DUI inválido");
 
-export const vagoFormSchema = z.object({
-  nombre: z.string().min(1, "Nombre requerido"),
-  apellido: z.string().min(1, "Apellido requerido"),
-  email: z.string().email("Correo inválido"),
-  telefono: phoneSchema,
-  telefonoWhatsapp: optionalPhoneSchema,
-  dui: optionalDuiSchema,
-  genero: z.string().optional(),
-  fechaNacimiento: z.string().optional(),
-  contactoEmergenciaNombre: z.string().min(1, "Contacto de emergencia requerido"),
-  contactoEmergenciaRelacionId: z.string().optional(),
-  contactoEmergenciaRelacion: z.string().min(1, "Relación requerida"),
-  contactoEmergenciaTel: phoneSchema,
-  nivelExperienciaId: z.string().optional(),
-  nivelExperiencia: z.string().min(1, "Nivel de experiencia requerido"),
-  restriccionesMedicas: z.string().optional(),
-  notasInternas: z.string().optional(),
-});
+const optionalEmailSchema = z
+  .string()
+  .optional()
+  .refine((value) => !value || value.trim().length === 0 || z.string().email().safeParse(value).success, "Correo inválido");
+
+export const vagoFormSchema = z
+  .object({
+    nombre: z.string().min(1, "Nombre requerido"),
+    apellido: z.string().min(1, "Apellido requerido"),
+    email: optionalEmailSchema,
+    telefono: optionalPhoneSchema,
+    telefonoWhatsapp: optionalPhoneSchema,
+    dui: optionalDuiSchema,
+    genero: z.string().optional(),
+    fechaNacimiento: z.string().optional(),
+    contactoEmergenciaNombre: z.string().optional(),
+    contactoEmergenciaRelacionId: z.string().optional(),
+    contactoEmergenciaRelacion: z.string().optional(),
+    contactoEmergenciaTel: optionalPhoneSchema,
+    nivelExperienciaId: z.string().optional(),
+    nivelExperiencia: z.string().optional(),
+    restriccionesMedicas: z.string().optional(),
+    notasInternas: z.string().optional(),
+  })
+  .superRefine((values, ctx) => {
+    const hasEmail = Boolean(values.email?.trim());
+    const hasTelefono = Boolean(values.telefono?.trim());
+    if (!hasEmail && !hasTelefono) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["email"],
+        message: "Indicá teléfono o email.",
+      });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["telefono"],
+        message: "Indicá teléfono o email.",
+      });
+    }
+  });
 
 export type VagoFormValues = z.infer<typeof vagoFormSchema>;
 
@@ -89,10 +112,17 @@ const optionalNonNegativeNumber = z.preprocess((val) => {
 }, z.number().min(0).optional());
 
 const tourDificultadStrings: readonly string[] = tourDificultadValues;
+const tourCategoriaStrings: readonly string[] = tourCategoriaValues;
 
 export const plantillaFormSchema = z.object({
   nombre: z.string().min(1, "Nombre requerido"),
   descripcion: z.string().min(1, "Descripción requerida"),
+  categoria: z
+    .string()
+    .min(1, "Categoría requerida")
+    .refine((value: string) => tourCategoriaStrings.includes(value), {
+      message: "Categoría inválida",
+    }),
   dificultad: z
     .string()
     .min(1, "Dificultad requerida")
@@ -107,7 +137,16 @@ export const plantillaFormSchema = z.object({
   wikiloc: z.string().optional(),
   equipoRecomendado: z.string().optional(),
   queLlevar: z.string().optional(),
-  itinerarioTipo: z.string().optional(),
+  itinerarioTipo: z
+    .array(
+      z.object({
+        hora: z.string(),
+        actividad: z.string(),
+      }),
+    )
+    .optional()
+    .default([]),
+  itinerarioTipoLegacy: z.string().optional(),
   serviciosExtras: z.string().optional(),
   politicaCancelacion: z.string().optional(),
   tiempoEstimado: z.string().optional(),

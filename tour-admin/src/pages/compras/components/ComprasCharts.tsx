@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useIsMobile } from "@/hooks/useBreakpoint";
 import {
   Bar,
   BarChart,
@@ -30,6 +31,7 @@ interface Props {
 }
 
 export function ComprasCharts({ compras }: Props) {
+  const isMobile = useIsMobile();
   const porCategoria = useMemo(() => {
     const map = new Map<string, number>();
     for (const item of compras) {
@@ -70,7 +72,7 @@ export function ComprasCharts({ compras }: Props) {
               <YAxis
                 type="category"
                 dataKey="categoria"
-                width={120}
+                width={isMobile ? 80 : 120}
                 tick={{ fontSize: 10, fill: "#6b7b7a" }}
                 interval={0}
               />
@@ -98,7 +100,7 @@ export function ComprasCharts({ compras }: Props) {
                 tickFormatter={(v) =>
                   `$${Number(v ?? 0) >= 1000 ? `${(Number(v ?? 0) / 1000).toFixed(1)}k` : Number(v ?? 0)}`
                 }
-                width={48}
+                width={isMobile ? 40 : 48}
               />
               <Tooltip
                 contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #d0e8e5" }}

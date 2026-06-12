@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { Table } from "@/components/ui/Table";
 import { listRecentAuditLogs, type AuditLogEntry } from "@/services/auditoriaService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
 import { InactiveRecordsSection } from "./InactiveRecordsSection";
@@ -42,35 +43,29 @@ function AuditLogsPanel() {
         <p className="text-sm text-neutral">No hay entradas registradas.</p>
       ) : null}
       {!isLoading && entries.length > 0 ? (
-        <div className="max-h-[480px] overflow-auto rounded-md border border-border">
-          <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-            <thead className="sticky top-0 bg-surface">
-              <tr className="border-b border-border text-xs uppercase text-neutral">
-                <th className="px-3 py-2 font-medium">Fecha</th>
-                <th className="px-3 py-2 font-medium">Usuario</th>
-                <th className="px-3 py-2 font-medium">Acción</th>
-                <th className="px-3 py-2 font-medium">Entidad</th>
-                <th className="px-3 py-2 font-medium">Id</th>
-                <th className="px-3 py-2 font-medium">Detalle</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((row) => (
-                <tr key={row.id} className="border-b border-border/80">
-                  <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-textDark">
-                    {row.timestamp instanceof Date && !Number.isNaN(row.timestamp.getTime())
-                      ? row.timestamp.toLocaleString("es-SV")
-                      : "—"}
-                  </td>
-                  <td className="px-3 py-2 text-textDark">{row.usuarioEmail}</td>
-                  <td className="px-3 py-2 text-textDark">{row.accion}</td>
-                  <td className="px-3 py-2 text-textDark">{row.entidad}</td>
-                  <td className="max-w-[140px] truncate px-3 py-2 font-mono text-xs text-neutral">{row.entidadId}</td>
-                  <td className="px-3 py-2 text-textDark">{row.detalle ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="max-h-[480px] overflow-y-auto">
+          <Table
+            emptyMessage="No hay entradas registradas."
+            headers={["Fecha", "Usuario", "Acción", "Entidad", "Id", "Detalle"]}
+            mobileHiddenColumnIndexes={[4]}
+            rows={entries.map((row) => ({
+              key: row.id,
+              cells: [
+                <span key={`fecha-${row.id}`} className="font-mono text-xs">
+                  {row.timestamp instanceof Date && !Number.isNaN(row.timestamp.getTime())
+                    ? row.timestamp.toLocaleString("es-SV")
+                    : "—"}
+                </span>,
+                row.usuarioEmail,
+                row.accion,
+                row.entidad,
+                <span key={`id-${row.id}`} className="max-w-[140px] truncate font-mono text-xs text-neutral">
+                  {row.entidadId}
+                </span>,
+                row.detalle ?? "—",
+              ],
+            }))}
+          />
         </div>
       ) : null}
     </Card>

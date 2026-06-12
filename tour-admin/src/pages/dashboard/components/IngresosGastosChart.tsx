@@ -1,4 +1,5 @@
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useIsMobile } from "@/hooks/useBreakpoint";
 import type { MonthlyDoubleSeries } from "@/services/dashboardService";
 
 interface Props {
@@ -6,6 +7,7 @@ interface Props {
 }
 
 export function IngresosGastosChart({ data }: Props) {
+  const isMobile = useIsMobile();
   if (data.length === 0) {
     return <p className="py-8 text-center text-sm text-neutral">Sin datos en el período</p>;
   }
@@ -19,7 +21,7 @@ export function IngresosGastosChart({ data }: Props) {
           axisLine={false}
           tickLine={false}
           tickFormatter={(v) => `$${Number(v ?? 0) >= 1000 ? `${(Number(v ?? 0) / 1000).toFixed(1)}k` : Number(v ?? 0)}`}
-          width={52}
+          width={isMobile ? 40 : 52}
         />
         <Tooltip
           contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #d0e8e5" }}

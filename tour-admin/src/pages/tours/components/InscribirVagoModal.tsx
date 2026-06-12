@@ -46,7 +46,7 @@ function vagoToOption(vago: Vago): AutocompleteOption {
   return {
     id: vago.id,
     label: `${vago.nombre} ${vago.apellido}`,
-    sublabel: vago.email,
+    sublabel: vago.email ?? vago.telefono ?? undefined,
   };
 }
 
@@ -80,11 +80,17 @@ export function InscribirVagoModal({
       return;
     }
     try {
-      const page = await vagosService.listPage({ searchTerm: option.label, pageSize: 15 });
-      const match = page.items.find((item) => item.id === option.id) ?? null;
-      setSelectedVago(match);
+      const vago = await vagosService.getById(option.id);
+      if (!vago) {
+        setLocalError("No se encontró el vago seleccionado.");
+        setSelectedOption(null);
+        setSelectedVago(null);
+        return;
+      }
+      setSelectedVago(vago);
     } catch {
       setLocalError("No fue posible cargar los datos del vago seleccionado.");
+      setSelectedOption(null);
       setSelectedVago(null);
     }
   };

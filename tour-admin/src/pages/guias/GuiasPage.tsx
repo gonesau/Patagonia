@@ -236,7 +236,7 @@ export function GuiasPage() {
     <>
       <PageHeader title="Gestión de Guías" description="Registro de guías con estado operativo y datos críticos." />
       <Card>
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="font-heading text-lg">Listado de guías</h3>
           <Button onClick={openCreateModal}>Agregar guía</Button>
         </div>
@@ -263,7 +263,13 @@ export function GuiasPage() {
           }))}
         />
       </Card>
-      <Modal isOpen={isFormModalOpen} onClose={closeFormModal} size="lg" title={selectedGuia ? "Editar guía" : "Agregar guía"}>
+      <Modal
+        isOpen={isFormModalOpen}
+        onClose={closeFormModal}
+        size="lg"
+        fullScreenOnMobile
+        title={selectedGuia ? "Editar guía" : "Agregar guía"}
+      >
         <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
           <div className="grid gap-3 md:grid-cols-2">
             <Input label="Nombre" {...form.register("nombre")} error={form.formState.errors.nombre?.message} />
@@ -342,6 +348,7 @@ export function GuiasPage() {
               <Table
                 emptyMessage="Sin documentos."
                 headers={["Tipo", "Nombre", "Vence", "Alerta", "Acción"]}
+                mobilePageSize={5}
                 rows={documentos.map((d) => {
                   const dias = diasHastaVencimiento(d.venceEn);
                   const alerta =
@@ -384,12 +391,14 @@ export function GuiasPage() {
         isOpen={Boolean(agendaGuia)}
         onClose={() => setAgendaGuia(null)}
         size="lg"
+        fullScreenOnMobile
         title={agendaGuia ? `Agenda — ${agendaGuia.nombre} ${agendaGuia.apellido}` : "Agenda"}
       >
         {isAgendaLoading ? <p className="text-sm text-neutral">Cargando...</p> : null}
         <Table
           emptyMessage="No hay ocurrencias asignadas."
           headers={["Tour", "Fecha", "Estado"]}
+          mobilePageSize={5}
           rows={agendaTours.map((t) => ({
             key: t.id,
             cells: [t.nombre, new Date(t.fechaInicio).toLocaleString("es-SV"), t.estado],

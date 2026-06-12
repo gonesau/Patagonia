@@ -1,3 +1,4 @@
+import { deleteField } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import { History } from "lucide-react";
 import { useForm, useWatch, type Resolver } from "react-hook-form";
@@ -19,6 +20,13 @@ import { pagosService } from "@/services/pagosService";
 import { comprasService } from "@/services/comprasService";
 import { inscripcionesService } from "@/services/inscripcionesService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
+import { ItinerarioTipoEditor } from "@/components/forms/ItinerarioTipoEditor";
+import {
+  createEmptyItinerarioTipoItem,
+  formatItinerarioTipoForDetailView,
+  normalizeItinerarioTipoFromFirestore,
+  resolveItinerarioTipoForPersist,
+} from "@/utils/itinerarioTipo.utils";
 import { plantillaFormSchema, type PlantillaFormValues } from "@/utils/validaciones";
 import {
   OPCIONES_DIFICULTAD_PLANTILLA,
@@ -26,12 +34,14 @@ import {
   normalizarDificultadDesdeTexto,
   obtenerEtiquetaDificultad,
 } from "@/utils/dificultad";
+import { OPCIONES_CATEGORIA_TOUR, isTourCategoriaValue, obtenerEtiquetaCategoria } from "@/utils/tourCategoria";
 import type { Terreno } from "@/types/terreno.types";
-import type { TourDificultad, TourPlantilla } from "@/types/tour.types";
+import type { TourCategoria, TourDificultad, TourPlantilla } from "@/types/tour.types";
 
 const defaultValues: PlantillaFormValues = {
   nombre: "",
   descripcion: "",
+  categoria: "",
   dificultad: "",
   dificultadId: "",
   distanciaKm: undefined,
@@ -41,7 +51,8 @@ const defaultValues: PlantillaFormValues = {
   wikiloc: "",
   equipoRecomendado: "",
   queLlevar: "",
-  itinerarioTipo: "",
+  itinerarioTipo: [createEmptyItinerarioTipoItem()],
+  itinerarioTipoLegacy: undefined,
   serviciosExtras: "",
   politicaCancelacion: "",
   tiempoEstimado: "",
@@ -129,9 +140,32 @@ export function PlantillasPage() {
       normalizarDificultadDesdeTexto(String(plantilla.dificultad ?? "")) ??
       normalizarDificultadDesdeTexto(String(plantilla.dificultadId ?? "")) ??
       "";
+    const itinerarioNormalizado = normalizeItinerarioTipoFromFirestore(plantilla.itinerarioTipo);
+    const itinerarioFormValues =
+      itinerarioNormalizado.kind === "structured"
+        ? {
+            itinerarioTipo:
+              itinerarioNormalizado.items.length > 0
+                ? itinerarioNormalizado.items
+                : [createEmptyItinerarioTipoItem()],
+            itinerarioTipoLegacy: undefined,
+          }
+        : itinerarioNormalizado.kind === "legacy"
+          ? {
+              itinerarioTipo: [createEmptyItinerarioTipoItem()],
+              itinerarioTipoLegacy: itinerarioNormalizado.text,
+            }
+          : {
+              itinerarioTipo: [createEmptyItinerarioTipoItem()],
+              itinerarioTipoLegacy: undefined,
+            };
+    const categoriaFormulario = isTourCategoriaValue(String(plantilla.categoria ?? ""))
+      ? (plantilla.categoria as TourCategoria)
+      : "";
     form.reset({
       nombre: plantilla.nombre,
       descripcion: plantilla.descripcion,
+      categoria: categoriaFormulario,
       dificultad: claveFormulario as TourDificultad | "",
       dificultadId: claveFormulario,
       distanciaKm: plantilla.distanciaKm,
@@ -141,7 +175,7 @@ export function PlantillasPage() {
       wikiloc: plantilla.wikiloc ?? "",
       equipoRecomendado: plantilla.equipoRecomendado ?? "",
       queLlevar: plantilla.queLlevar ?? "",
-      itinerarioTipo: plantilla.itinerarioTipo ?? "",
+      ...itinerarioFormValues,
       serviciosExtras: plantilla.serviciosExtras ?? "",
       politicaCancelacion: plantilla.politicaCancelacion ?? "",
       tiempoEstimado: plantilla.tiempoEstimado ?? "",
@@ -162,13 +196,27 @@ export function PlantillasPage() {
       setErrorMessage(null);
       setSuccessMessage(null);
       const dificultadSeleccionada = values.dificultad as TourDificultad;
-      const payload = {
-        ...values,
+      const { itinerarioTipo, itinerarioTipoLegacy, ...restValues } = values;
+      const itinerarioPersistido = resolveItinerarioTipoForPersist(
+        itinerarioTipo ?? [],
+        itinerarioTipoLegacy,
+      );
+      const itinerarioAnterior = selectedPlantilla
+        ? normalizeItinerarioTipoFromFirestore(selectedPlantilla.itinerarioTipo)
+        : { kind: "empty" as const };
+      const tieneItinerarioAnterior = itinerarioAnterior.kind !== "empty";
+      const payload: Record<string, unknown> = {
+        ...restValues,
         dificultad: dificultadSeleccionada,
         dificultadId: dificultadSeleccionada,
         puntajeDificultad: sugerenciaDificultad.puntaje,
         dificultadCalculada: sugerenciaDificultad.dificultad,
       };
+      if (itinerarioPersistido !== undefined) {
+        payload.itinerarioTipo = itinerarioPersistido;
+      } else if (selectedPlantilla && tieneItinerarioAnterior) {
+        payload.itinerarioTipo = deleteField();
+      }
       if (selectedPlantilla) {
         await plantillasService.update(selectedPlantilla.id, payload);
         setSuccessMessage("Plantilla actualizada exitosamente.");
@@ -176,7 +224,7 @@ export function PlantillasPage() {
         await plantillasService.create({
           ...payload,
           creadoPor: profile?.id ?? "sistema",
-        });
+        } as Omit<TourPlantilla, "id" | "creadoEn">);
         setSuccessMessage("Plantilla registrada exitosamente.");
       }
       closeFormModal();
@@ -242,7 +290,7 @@ export function PlantillasPage() {
     <>
       <PageHeader title="Plantillas de Tour" description="Ficha maestra para crear ocurrencias reutilizables." />
       <Card>
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="font-heading text-lg">Listado de plantillas</h3>
           <Button onClick={openCreateModal}>Agregar plantilla</Button>
         </div>
@@ -250,11 +298,14 @@ export function PlantillasPage() {
         {successMessage ? <p className="mb-3 text-sm text-success">{successMessage}</p> : null}
         <Table
           emptyMessage="No hay plantillas registradas."
-          headers={["Nombre", "Dificultad", "Distancia y Tiempo", "Precio base", "Estado", "Acciones"]}
+          headers={["Nombre", "Categoría", "Dificultad", "Distancia y Tiempo", "Precio base", "Estado", "Acciones"]}
           rows={plantillas.map((item) => ({
             key: item.id,
             cells: [
               item.nombre,
+              item.categoria && isTourCategoriaValue(item.categoria)
+                ? obtenerEtiquetaCategoria(item.categoria)
+                : "—",
               item.dificultad
                 ? `${(() => {
                     const claveFila = normalizarDificultadDesdeTexto(String(item.dificultad));
@@ -284,6 +335,7 @@ export function PlantillasPage() {
         isOpen={isFormModalOpen}
         onClose={closeFormModal}
         size="lg"
+        fullScreenOnMobile
         title={selectedPlantilla ? "Editar plantilla" : "Agregar plantilla"}
       >
         <form className="space-y-3" onSubmit={(event) => void onSubmit(event)}>
@@ -293,6 +345,26 @@ export function PlantillasPage() {
             <textarea className="min-h-28 rounded-md border border-border px-3 py-2" {...form.register("descripcion")} />
             {form.formState.errors.descripcion?.message ? (
               <span className="text-danger">{form.formState.errors.descripcion.message}</span>
+            ) : null}
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span>Categoría</span>
+            <select
+              className="rounded-md border border-border px-3 py-2"
+              value={form.watch("categoria") ?? ""}
+              onChange={(event) => {
+                form.setValue("categoria", event.target.value, { shouldDirty: true, shouldValidate: true });
+              }}
+            >
+              <option value="">Selecciona categoría</option>
+              {OPCIONES_CATEGORIA_TOUR.map((opcion) => (
+                <option key={opcion.clave} value={opcion.clave}>
+                  {opcion.etiqueta}
+                </option>
+              ))}
+            </select>
+            {form.formState.errors.categoria?.message ? (
+              <span className="text-danger">{form.formState.errors.categoria.message}</span>
             ) : null}
           </label>
           <div className="grid gap-3 md:grid-cols-2">
@@ -398,10 +470,13 @@ export function PlantillasPage() {
               <span>Qué llevar</span>
               <textarea className="min-h-20 rounded-md border border-border px-3 py-2" {...form.register("queLlevar")} />
             </label>
-            <label className="flex flex-col gap-1 text-sm md:col-span-2">
-              <span>Itinerario tipo</span>
-              <textarea className="min-h-24 rounded-md border border-border px-3 py-2" {...form.register("itinerarioTipo")} />
-            </label>
+            <ItinerarioTipoEditor
+              control={form.control}
+              disabled={form.formState.isSubmitting}
+              errors={form.formState.errors}
+              legacyText={form.watch("itinerarioTipoLegacy")}
+              register={form.register}
+            />
             <label className="flex flex-col gap-1 text-sm md:col-span-2">
               <span>Que incluimos</span>
               <textarea className="min-h-20 rounded-md border border-border px-3 py-2" {...form.register("serviciosExtras")} />
@@ -429,12 +504,14 @@ export function PlantillasPage() {
         isOpen={Boolean(historialPlantilla)}
         onClose={() => setHistorialPlantilla(null)}
         size="lg"
+        fullScreenOnMobile
         title={historialPlantilla ? `Ocurrencias — ${historialPlantilla.nombre}` : "Historial"}
       >
         {isHistorialLoading ? <p className="text-sm text-neutral">Cargando...</p> : null}
         <Table
           emptyMessage="No hay ocurrencias para esta plantilla."
           headers={["Fecha", "Estado", "Inscritos", "Ingresos", "Margen"]}
+          mobilePageSize={5}
           rows={historialOcurrencias}
         />
       </Modal>
@@ -461,6 +538,14 @@ export function PlantillasPage() {
             <div className="sm:col-span-2">
               <p className="font-semibold text-neutral">Descripción</p>
               <p className="whitespace-pre-wrap">{plantillaDetail.descripcion}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-neutral">Categoría</p>
+              <p>
+                {plantillaDetail.categoria && isTourCategoriaValue(plantillaDetail.categoria)
+                  ? obtenerEtiquetaCategoria(plantillaDetail.categoria)
+                  : "—"}
+              </p>
             </div>
             <div>
               <p className="font-semibold text-neutral">Dificultad</p>
@@ -521,12 +606,15 @@ export function PlantillasPage() {
                 <p className="whitespace-pre-wrap">{plantillaDetail.serviciosExtras}</p>
               </div>
             ) : null}
-            {plantillaDetail.itinerarioTipo ? (
-              <div className="sm:col-span-2">
-                <p className="font-semibold text-neutral">Itinerario Tipo</p>
-                <p className="whitespace-pre-wrap">{plantillaDetail.itinerarioTipo}</p>
-              </div>
-            ) : null}
+            {(() => {
+              const itinerarioDetalle = formatItinerarioTipoForDetailView(plantillaDetail.itinerarioTipo);
+              return itinerarioDetalle ? (
+                <div className="sm:col-span-2">
+                  <p className="font-semibold text-neutral">Itinerario Tipo</p>
+                  <p className="whitespace-pre-wrap">{itinerarioDetalle}</p>
+                </div>
+              ) : null;
+            })()}
             {plantillaDetail.politicaCancelacion ? (
               <div className="sm:col-span-2">
                 <p className="font-semibold text-neutral">Política de cancelación</p>

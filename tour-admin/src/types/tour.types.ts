@@ -1,8 +1,12 @@
+import type { ItinerarioTipoItem } from "./itinerarioTipo.types";
 import type { SoftDeleteFields } from "./softDelete.types";
 import type { EstadoTourId } from "./estadoTour.types";
 
 /** Cuatro niveles fijos de dificultad de plantilla (sin catálogo en Firestore). */
 export type TourDificultad = "facil" | "moderado" | "dificil" | "extremo";
+
+/** Categoría fija de plantilla/ocurrencia de tour. */
+export type TourCategoria = "cascada" | "volcanes" | "cerros" | "ciudad" | "otras_actividades";
 
 export interface TourPlantilla extends SoftDeleteFields {
   id: string;
@@ -17,10 +21,12 @@ export interface TourPlantilla extends SoftDeleteFields {
   /** Opcional; datos legacy. Debe coincidir con `dificultad` cuando se persiste desde la app. */
   dificultadId?: string;
   dificultad: TourDificultad | "";
+  categoria: TourCategoria | "";
   wikiloc?: string;
   equipoRecomendado?: string;
   queLlevar?: string;
-  itinerarioTipo?: string;
+  /** Array estructurado o string legacy según el documento en Firestore. */
+  itinerarioTipo?: ItinerarioTipoItem[] | string;
   serviciosExtras?: string;
   politicaCancelacion?: string;
   tiempoEstimado?: string;
@@ -53,10 +59,11 @@ export interface TourOcurrencia extends SoftDeleteFields {
   distanciaKm?: number;
   elevacionM?: number;
   dificultad?: string;
+  categoria?: TourCategoria;
   wikiloc?: string;
   equipoRecomendado?: string;
   queLlevar?: string;
-  itinerarioTipo?: string;
+  itinerarioTipo?: ItinerarioTipoItem[] | string;
   serviciosExtras?: string;
   politicaCancelacion?: string;
   costoTransporte?: number;

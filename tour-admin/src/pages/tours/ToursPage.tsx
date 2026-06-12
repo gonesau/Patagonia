@@ -17,6 +17,11 @@ import { tourFormSchema, type TourFormValues } from "@/utils/validaciones";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
 import { AlertMessage } from "@/components/ui/AlertMessage";
 import { findGuiaIdsWithTourConflict, plantillaSnapshotForTour } from "@/utils/tourScheduling.utils";
+import {
+  OPCIONES_CATEGORIA_TOUR,
+  groupToursByCategoria,
+  resolveTourCategoria,
+} from "@/utils/tourCategoria";
 import type { TourOcurrencia } from "@/types/tour.types";
 import { getEstadoTour } from "@/types/estadoTour.types";
 import type { Transporte } from "@/types/transporte.types";
@@ -112,6 +117,7 @@ export function ToursPage() {
     setSearchParams(next, { replace: true });
   }, [tours, searchParams, setSearchParams, setSelectedTourId]);
 
+  const [filtroCategoria, setFiltroCategoria] = useState<string>("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedTourToEdit, setSelectedTourToEdit] = useState<TourOcurrencia | null>(null);
   const [tourToDelete, setTourToDelete] = useState<TourOcurrencia | null>(null);
@@ -500,6 +506,23 @@ export function ToursPage() {
     [guias, selectedGuideIds],
   );
 
+  const plantillaById = useMemo(
+    () => new Map(plantillas.map((plantilla) => [plantilla.id, plantilla])),
+    [plantillas],
+  );
+
+  const filteredTours = useMemo(() => {
+    if (!filtroCategoria) {
+      return tours;
+    }
+    return tours.filter((tour) => resolveTourCategoria(tour, plantillaById) === filtroCategoria);
+  }, [tours, filtroCategoria, plantillaById]);
+
+  const groupedTours = useMemo(
+    () => groupToursByCategoria(filteredTours, plantillaById),
+    [filteredTours, plantillaById],
+  );
+
   const transporteOptions = useMemo(() => {
     const selectedId = transporteIdWatch;
     const list = transporteDisponibles.some((t) => t.id === selectedId)
@@ -518,9 +541,26 @@ export function ToursPage() {
       />
       {errorMessage && !isTourModalOpen ? <AlertMessage type="error" message={errorMessage} className="mb-4" /> : null}
       {successMessage ? <AlertMessage type="success" message={successMessage} className="mb-4" /> : null}
+      <div className="mb-4">
+        <label className="flex max-w-xs flex-col gap-1 text-sm">
+          <span>Filtrar por categoría</span>
+          <select
+            className="rounded-md border border-border px-3 py-2"
+            value={filtroCategoria}
+            onChange={(event) => setFiltroCategoria(event.target.value)}
+          >
+            <option value="">Todas</option>
+            {OPCIONES_CATEGORIA_TOUR.map((opcion) => (
+              <option key={opcion.clave} value={opcion.clave}>
+                {opcion.etiqueta}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       {/* ─── Listado ─── */}
       <TourListPanel
-        tours={tours}
+        groupedTours={groupedTours}
         hasMore={hasMoreTours}
         isAdmin={isAdmin}
         isLoadingMore={isLoadingMoreTours}
@@ -618,6 +658,7 @@ export function ToursPage() {
         isOpen={isTourModalOpen}
         onClose={closeTourModal}
         size="lg"
+        fullScreenOnMobile
         title={selectedTourToEdit ? "Editar tour" : "Agregar tour"}
       >
         <form className="space-y-3" onSubmit={(event) => void onTourSubmit(event)}>
@@ -673,7 +714,7 @@ export function ToursPage() {
             <label className="flex flex-col gap-1 text-sm">
               <span>Estado</span>
               {selectedTourToEdit ? (
-                <div className="flex items-center gap-3 rounded-md border border-border bg-slate-50 px-3 py-2">
+                <div className="flex flex-col gap-3 rounded-md border border-border bg-slate-50 px-3 py-2 sm:flex-row sm:items-center">
                   <span className="flex-1 text-sm text-textDark">
                     El estado no se edita aquí: es Programado (aún no inicia), En curso (entre inicio y fin), Realizado
                     (ya pasó la fecha de fin) o Cancelado (marcado manualmente).{" "}

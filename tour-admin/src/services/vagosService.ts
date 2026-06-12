@@ -31,10 +31,12 @@ function normalizeSearchText(value: string): string {
     .trim();
 }
 
-function buildSearchPrefixes(data: Pick<Vago, "nombre" | "apellido" | "email" | "telefono">): string[] {
+function buildSearchPrefixes(
+  data: Pick<Vago, "nombre" | "apellido"> & { email?: string; telefono?: string },
+): string[] {
   const base = [data.nombre, data.apellido, data.email, data.telefono]
-    .map(normalizeSearchText)
-    .filter(Boolean);
+    .filter((value): value is string => Boolean(value?.trim()))
+    .map(normalizeSearchText);
   const prefixes = new Set<string>();
   for (const item of base) {
     for (let index = 1; index <= item.length; index += 1) {
@@ -48,7 +50,11 @@ function buildSearchPrefixes(data: Pick<Vago, "nombre" | "apellido" | "email" | 
 }
 
 async function ensureUniqueEmail(email: string, excludeId?: string): Promise<void> {
-  const emailQuery = query(vagosCollection, where("email", "==", email), limit(1));
+  const normalizedEmail = email.trim();
+  if (!normalizedEmail) {
+    return;
+  }
+  const emailQuery = query(vagosCollection, where("email", "==", normalizedEmail), limit(1));
   const snapshot = await getDocs(emailQuery);
   const first = snapshot.docs[0];
   if (first && first.id !== excludeId) {
@@ -72,7 +78,9 @@ export const vagosService = {
   },
 
   async create(data: Omit<Vago, "id" | "creadoEn">): Promise<void> {
-    await ensureUniqueEmail(data.email);
+    if (data.email) {
+      await ensureUniqueEmail(data.email);
+    }
     await addDoc(vagosCollection, {
       ...data,
       searchPrefixes: buildSearchPrefixes(data),

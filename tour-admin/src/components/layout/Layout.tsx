@@ -34,13 +34,13 @@ export function Layout() {
         isMobileOpen={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
           isSidebarCollapsed={isSidebarCollapsed}
           onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
         />
-        <main className="flex-1 p-3 sm:p-4 lg:p-6">
+        <main className="min-w-0 flex-1 overflow-x-hidden p-3 sm:p-4 lg:p-6">
           <Suspense
             fallback={
               <div className="p-8 text-sm text-textDark">Cargando módulo...</div>

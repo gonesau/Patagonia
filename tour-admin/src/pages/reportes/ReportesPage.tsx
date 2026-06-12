@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
+import { Table } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { toursService } from "@/services/toursService";
@@ -344,41 +345,34 @@ export function ReportesPage() {
         <div className="mb-3 rounded-md bg-primary/10 p-3 text-sm text-textDark">
           Compras generales (no asociadas a tour): ${comprasGeneralesTotal.toFixed(2)}
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-            <thead>
-              <tr className="border-b border-border text-neutral">
-                <th className="py-2 pr-3 font-medium">Tour</th>
-                <th className="py-2 pr-3 font-medium">Ingresos</th>
-                <th className="py-2 pr-3 font-medium">Costos</th>
-                <th className="py-2 pr-3 font-medium">Margen</th>
-                <th className="py-2 font-medium">Fecha salida</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={`${row[0]}-${row[4]}`} className="border-b border-border/80">
-                  <td className="py-2 pr-3 text-textDark">{row[0]}</td>
-                  <td className="py-2 pr-3 font-mono text-textDark">{row[1]}</td>
-                  <td className="py-2 pr-3 font-mono text-textDark">{row[2]}</td>
-                  <td className="py-2 pr-3 font-mono text-textDark">{row[3]}</td>
-                  <td className="py-2 text-textDark">{row[4]}</td>
-                </tr>
-              ))}
-            </tbody>
-            {rows.length > 0 ? (
-              <tfoot>
-                <tr className="border-t-2 border-border font-medium text-textDark">
-                  <td className="py-2 pr-3">Totales</td>
-                  <td className="py-2 pr-3 font-mono">${totales.ingresos.toFixed(2)}</td>
-                  <td className="py-2 pr-3 font-mono">${totales.costos.toFixed(2)}</td>
-                  <td className="py-2 pr-3 font-mono">${totales.margen.toFixed(2)}</td>
-                  <td className="py-2" />
-                </tr>
-              </tfoot>
-            ) : null}
-          </table>
-        </div>
+        <Table
+          emptyMessage="No hay datos para el rango seleccionado."
+          headers={["Tour", "Ingresos", "Costos", "Margen", "Fecha salida"]}
+          rows={rows.map((row, index) => ({
+            key: `${row[0]}-${row[4]}-${index}`,
+            cells: [row[0], row[1], row[2], row[3], row[4]],
+          }))}
+        />
+        {rows.length > 0 ? (
+          <div className="mt-3 grid grid-cols-2 gap-2 rounded-md border border-border bg-slate-50 p-3 text-sm font-medium text-textDark sm:grid-cols-4">
+            <div>
+              <span className="block text-xs text-neutral">Ingresos</span>
+              <span className="font-mono">${totales.ingresos.toFixed(2)}</span>
+            </div>
+            <div>
+              <span className="block text-xs text-neutral">Costos</span>
+              <span className="font-mono">${totales.costos.toFixed(2)}</span>
+            </div>
+            <div>
+              <span className="block text-xs text-neutral">Margen</span>
+              <span className="font-mono">${totales.margen.toFixed(2)}</span>
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <span className="block text-xs text-neutral">Totales</span>
+              <span>{rows.length} tours</span>
+            </div>
+          </div>
+        ) : null}
       </Card>
     </>
   );

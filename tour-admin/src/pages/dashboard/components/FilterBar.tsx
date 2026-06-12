@@ -14,7 +14,7 @@ const OPTIONS: { value: PeriodFilter; label: string }[] = [
 
 export function FilterBar({ value, onChange }: FilterBarProps) {
   return (
-    <div className="flex items-center gap-1 rounded-lg border border-border bg-white p-1 w-fit">
+    <div className="grid w-full grid-cols-2 gap-1 rounded-lg border border-border bg-white p-1 sm:flex sm:w-fit sm:items-center">
       {OPTIONS.map((opt) => (
         <button
           key={opt.value}

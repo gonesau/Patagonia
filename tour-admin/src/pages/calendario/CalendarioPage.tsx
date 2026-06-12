@@ -3,6 +3,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { EventClickArg } from "@fullcalendar/core";
+import esLocale from "@fullcalendar/core/locales/es.js";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -14,6 +15,7 @@ import { guiasService } from "@/services/guiasService";
 import { inscripcionesService } from "@/services/inscripcionesService";
 import { notificacionesService } from "@/services/notificacionesService";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsLgDown } from "@/hooks/useBreakpoint";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
 
 const statusColorMap: Record<string, string> = {
@@ -24,8 +26,6 @@ const statusColorMap: Record<string, string> = {
   realizado: "#0e3832",
   en_curso: "#d97706",
 };
-const MOBILE_LAYOUT_BREAKPOINT = 1024;
-
 interface CalendarEventRecord {
   id: string;
   title: string;
@@ -49,19 +49,10 @@ export function CalendarioPage() {
   const [guides, setGuides] = useState<Array<{ id: string; name: string }>>([]);
   const [guideFilter, setGuideFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
-  const [isMobile, setIsMobile] = useState<boolean>(() =>
-    typeof window !== "undefined" ? window.innerWidth < MOBILE_LAYOUT_BREAKPOINT : false,
-  );
+  const isMobile = useIsLgDown();
   const [selectedEvent, setSelectedEvent] = useState<CalendarEventRecord | null>(null);
   const [reminderError, setReminderError] = useState<string | null>(null);
   const [isSendingReminder, setIsSendingReminder] = useState<boolean>(false);
-
-  useEffect(() => {
-    const syncViewport = () => setIsMobile(window.innerWidth < MOBILE_LAYOUT_BREAKPOINT);
-    syncViewport();
-    window.addEventListener("resize", syncViewport);
-    return () => window.removeEventListener("resize", syncViewport);
-  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -175,20 +166,23 @@ export function CalendarioPage() {
             </select>
           </label>
         </div>
-        <FullCalendar
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView={isMobile ? "timeGridWeek" : "dayGridMonth"}
-          headerToolbar={
-            isMobile
-              ? { left: "prev,next", center: "title", right: "today" }
-              : { left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek" }
-          }
-          locale="es"
-          events={filteredEvents}
-          eventClick={handleEventClick}
-          height="auto"
-          dayMaxEventRows={isMobile ? 2 : 4}
-        />
+        <div className="min-w-0 overflow-x-auto">
+          <FullCalendar
+            key={isMobile ? "fc-week" : "fc-month"}
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView={isMobile ? "timeGridWeek" : "dayGridMonth"}
+            headerToolbar={
+              isMobile
+                ? { left: "prev,next", center: "title", right: "today" }
+                : { left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek" }
+            }
+            locale={esLocale}
+            events={filteredEvents}
+            eventClick={handleEventClick}
+            height="auto"
+            dayMaxEventRows={isMobile ? 2 : 4}
+          />
+        </div>
       </Card>
 
       <Modal

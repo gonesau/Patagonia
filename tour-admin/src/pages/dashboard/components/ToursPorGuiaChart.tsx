@@ -1,4 +1,5 @@
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useIsMobile } from "@/hooks/useBreakpoint";
 import type { GuiaCargaItem } from "@/services/dashboardService";
 
 interface Props {
@@ -6,6 +7,7 @@ interface Props {
 }
 
 export function ToursPorGuiaChart({ data }: Props) {
+  const isMobile = useIsMobile();
   if (data === null) {
     return (
       <p className="py-8 text-center text-sm text-neutral">
@@ -33,7 +35,7 @@ export function ToursPorGuiaChart({ data }: Props) {
           tick={{ fontSize: 11, fill: "#6b7b7a" }}
           axisLine={false}
           tickLine={false}
-          width={110}
+          width={isMobile ? 72 : 110}
         />
         <Tooltip
           contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #d0e8e5" }}
