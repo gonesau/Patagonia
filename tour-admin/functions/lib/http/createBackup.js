@@ -8,6 +8,13 @@ const backupConfig_1 = require("../shared/backupConfig");
 function toSafeMessage(error) {
     return error instanceof Error ? error.message : "Error desconocido al crear la copia.";
 }
+function toBackupError(error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/permission|denied|forbidden|403/i.test(message)) {
+        return new https_1.HttpsError("failed-precondition", "La cuenta de servicio de Cloud Functions no tiene permisos para exportar datos o escribir en el bucket de respaldos. Contacta al administrador de GCP.");
+    }
+    return new https_1.HttpsError("internal", "No fue posible crear la copia de seguridad.");
+}
 exports.createBackup = (0, https_1.onCall)({ timeoutSeconds: 540, memory: "512MiB" }, async (request) => {
     (0, backupConfig_1.assertAdmin)(request);
     const backupId = (0, backupConfig_1.formatBackupId)(new Date());
@@ -49,7 +56,7 @@ exports.createBackup = (0, https_1.onCall)({ timeoutSeconds: 540, memory: "512Mi
     }
     catch (error) {
         await docRef.update({ status: "failed", errorMessage: toSafeMessage(error) });
-        throw new https_1.HttpsError("internal", "No fue posible crear la copia de seguridad.");
+        throw toBackupError(error);
     }
 });
 //# sourceMappingURL=createBackup.js.map

@@ -15,6 +15,17 @@ function toSafeMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Error desconocido al crear la copia.";
 }
 
+function toBackupError(error: unknown): HttpsError {
+  const message = error instanceof Error ? error.message : "";
+  if (/permission|denied|forbidden|403/i.test(message)) {
+    return new HttpsError(
+      "failed-precondition",
+      "La cuenta de servicio de Cloud Functions no tiene permisos para exportar datos o escribir en el bucket de respaldos. Contacta al administrador de GCP.",
+    );
+  }
+  return new HttpsError("internal", "No fue posible crear la copia de seguridad.");
+}
+
 export const createBackup = onCall({ timeoutSeconds: 540, memory: "512MiB" }, async (request) => {
   assertAdmin(request);
 
@@ -66,6 +77,6 @@ export const createBackup = onCall({ timeoutSeconds: 540, memory: "512MiB" }, as
     return { backupId, operationName };
   } catch (error) {
     await docRef.update({ status: "failed", errorMessage: toSafeMessage(error) });
-    throw new HttpsError("internal", "No fue posible crear la copia de seguridad.");
+    throw toBackupError(error);
   }
 });

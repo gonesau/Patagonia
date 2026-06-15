@@ -151,7 +151,7 @@ export function BackupSection() {
         ) : (
           <Table
             emptyMessage="Aún no se han creado copias de seguridad."
-            headers={["Fecha", "Creada por", "Estado", "Archivos", "Acciones"]}
+            headers={["Fecha", "Creada por", "Estado", "Archivos", "Detalle", "Acciones"]}
             rows={backups.map((backup) => ({
               key: backup.id,
               cells: [
@@ -159,6 +159,13 @@ export function BackupSection() {
                 backup.createdByEmail ?? "—",
                 STATUS_LABELS[backup.status] ?? backup.status,
                 backup.storageFilesCopied ?? "—",
+                backup.status === "failed" && backup.errorMessage ? (
+                  <span className="text-xs text-danger" title={backup.errorMessage}>
+                    {backup.errorMessage}
+                  </span>
+                ) : (
+                  "—"
+                ),
                 <div className="flex flex-wrap items-center gap-2">
                   {backup.status === "pending" ? (
                     <Button
@@ -178,9 +185,6 @@ export function BackupSection() {
                       <RotateCcw size={14} strokeWidth={1.8} />
                       Restaurar
                     </Button>
-                  ) : null}
-                  {backup.status === "failed" && backup.errorMessage ? (
-                    <span className="text-xs text-danger">{backup.errorMessage}</span>
                   ) : null}
                 </div>,
               ],

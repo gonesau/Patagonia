@@ -12,6 +12,17 @@ import {
 
 const CONFIRMATION_KEYWORD = "RESTAURAR";
 
+function toRestoreError(error: unknown): HttpsError {
+  const message = error instanceof Error ? error.message : "";
+  if (/permission|denied|forbidden|403/i.test(message)) {
+    return new HttpsError(
+      "failed-precondition",
+      "La cuenta de servicio de Cloud Functions no tiene permisos para importar datos o leer el bucket de respaldos. Contacta al administrador de GCP.",
+    );
+  }
+  return new HttpsError("internal", "No fue posible restaurar la copia de seguridad.");
+}
+
 export const restoreBackup = onCall({ timeoutSeconds: 540, memory: "512MiB" }, async (request) => {
   assertAdmin(request);
 
@@ -63,9 +74,6 @@ export const restoreBackup = onCall({ timeoutSeconds: 540, memory: "512MiB" }, a
 
     return { operationName, storageFilesRestored };
   } catch (error) {
-    throw new HttpsError(
-      "internal",
-      error instanceof Error ? error.message : "No fue posible restaurar la copia de seguridad.",
-    );
+    throw toRestoreError(error);
   }
 });

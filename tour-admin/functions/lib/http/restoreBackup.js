@@ -6,6 +6,13 @@ const firestore_1 = require("firebase-admin/firestore");
 const firebaseAdmin_1 = require("../shared/firebaseAdmin");
 const backupConfig_1 = require("../shared/backupConfig");
 const CONFIRMATION_KEYWORD = "RESTAURAR";
+function toRestoreError(error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/permission|denied|forbidden|403/i.test(message)) {
+        return new https_1.HttpsError("failed-precondition", "La cuenta de servicio de Cloud Functions no tiene permisos para importar datos o leer el bucket de respaldos. Contacta al administrador de GCP.");
+    }
+    return new https_1.HttpsError("internal", "No fue posible restaurar la copia de seguridad.");
+}
 exports.restoreBackup = (0, https_1.onCall)({ timeoutSeconds: 540, memory: "512MiB" }, async (request) => {
     (0, backupConfig_1.assertAdmin)(request);
     const { backupId, confirm } = request.data;
@@ -47,7 +54,7 @@ exports.restoreBackup = (0, https_1.onCall)({ timeoutSeconds: 540, memory: "512M
         return { operationName, storageFilesRestored };
     }
     catch (error) {
-        throw new https_1.HttpsError("internal", error instanceof Error ? error.message : "No fue posible restaurar la copia de seguridad.");
+        throw toRestoreError(error);
     }
 });
 //# sourceMappingURL=restoreBackup.js.map
