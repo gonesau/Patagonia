@@ -15,20 +15,20 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import type { UserRole } from "@/types/usuario.types";
+import { can, type PermissionResource } from "@/auth/permissions";
 
-const allLinks: Array<{ to: string; label: string; icon: LucideIcon; roles: UserRole[] }> = [
-  { to: "/dashboard", label: "Dashboard", icon: Home, roles: ["admin", "guia", "operador"] },
-  { to: "/vagos", label: "Vagos", icon: Users, roles: ["admin", "operador"] },
-  { to: "/guias", label: "Guías", icon: MapPinned, roles: ["admin", "operador"] },
-  { to: "/transporte", label: "Transporte", icon: Bus, roles: ["admin", "operador"] },
-  { to: "/plantillas", label: "Plantillas", icon: BookTemplate, roles: ["admin", "operador"] },
-  { to: "/tours", label: "Tours", icon: Compass, roles: ["admin", "guia", "operador"] },
-  { to: "/calendario", label: "Calendario", icon: CalendarDays, roles: ["admin", "guia", "operador"] },
-  { to: "/compras", label: "Compras", icon: ShoppingCart, roles: ["admin", "operador"] },
-  { to: "/reportes", label: "Reportes", icon: CreditCard, roles: ["admin", "operador"] },
-  { to: "/administracion", label: "Administración", icon: ListChecks, roles: ["admin"] },
-  { to: "/configuracion", label: "Configuración", icon: Settings, roles: ["admin"] },
+const allLinks: Array<{ to: string; label: string; icon: LucideIcon; resource: PermissionResource }> = [
+  { to: "/dashboard", label: "Dashboard", icon: Home, resource: "dashboard" },
+  { to: "/vagos", label: "Vagos", icon: Users, resource: "vagos" },
+  { to: "/guias", label: "Guías", icon: MapPinned, resource: "guias" },
+  { to: "/transporte", label: "Transporte", icon: Bus, resource: "transporte" },
+  { to: "/plantillas", label: "Plantillas", icon: BookTemplate, resource: "plantillas" },
+  { to: "/tours", label: "Tours", icon: Compass, resource: "tours" },
+  { to: "/calendario", label: "Calendario", icon: CalendarDays, resource: "calendario" },
+  { to: "/compras", label: "Compras", icon: ShoppingCart, resource: "compras" },
+  { to: "/reportes", label: "Reportes", icon: CreditCard, resource: "reportes" },
+  { to: "/administracion", label: "Administración", icon: ListChecks, resource: "administracion" },
+  { to: "/configuracion", label: "Configuración", icon: Settings, resource: "configuracion" },
 ];
 
 interface SidebarProps {
@@ -38,9 +38,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isCollapsed, isMobileOpen, onCloseMobile }: SidebarProps) {
-  const { profile } = useAuth();
-  const role = profile?.rol ?? null;
-  const links = role ? allLinks.filter((item) => item.roles.includes(role)) : [];
+  const { role } = useAuth();
+  const links = role ? allLinks.filter((item) => can(role, "view", item.resource)) : [];
 
   return (
     <>

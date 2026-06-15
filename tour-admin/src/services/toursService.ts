@@ -15,6 +15,8 @@ import {
   type QueryConstraint,
 } from "firebase/firestore";
 import type { TourOcurrencia } from "@/types/tour.types";
+import type { UserRole } from "@/types/usuario.types";
+import { stripTourFinancials } from "@/auth/financialPrivacy";
 import { db } from "./firebase";
 import { timestampToDate } from "./firestoreMappers";
 import { DEFAULT_PAGE_SIZE, type PaginatedResult, type PaginationParams } from "./pagination";
@@ -69,13 +71,24 @@ function isVisibleTour(item: TourOcurrencia): boolean {
   return (item.activo ?? true) === true && !item.eliminadoDefinitivamente;
 }
 
+function applyViewerPrivacy(tours: TourOcurrencia[], viewerRole?: UserRole): TourOcurrencia[] {
+  if (!viewerRole || viewerRole === "admin") {
+    return tours;
+  }
+  return tours.map((tour) => stripTourFinancials(tour, viewerRole));
+}
+
 export const toursService = {
-  async getById(tourId: string): Promise<TourOcurrencia | null> {
+  async getById(tourId: string, viewerRole?: UserRole): Promise<TourOcurrencia | null> {
     const snapshot = await getDoc(doc(db, "tours", tourId));
     if (!snapshot.exists()) {
       return null;
     }
-    return normalizeTour(snapshot.data() as Record<string, unknown>, snapshot.id);
+    const tour = normalizeTour(snapshot.data() as Record<string, unknown>, snapshot.id);
+    if (!viewerRole || viewerRole === "admin") {
+      return tour;
+    }
+    return stripTourFinancials(tour, viewerRole);
   },
 
   async listByPlantilla(
@@ -103,15 +116,18 @@ export const toursService = {
       .filter(isVisibleTour);
   },
 
-  async list(guiaId?: string): Promise<TourOcurrencia[]> {
+  async list(guiaId?: string, viewerRole?: UserRole): Promise<TourOcurrencia[]> {
     if (guiaId) {
-      const page = await this.listPage({ guiaId, pageSize: 500 });
+      const page = await this.listPage({ guiaId, pageSize: 500, viewerRole });
       return page.items;
     }
     const snapshot = await getDocs(query(toursCollection, orderBy("fechaInicio", "desc")));
-    return snapshot.docs
-      .map((item) => normalizeTour(item.data() as Record<string, unknown>, item.id))
-      .filter(isVisibleTour);
+    return applyViewerPrivacy(
+      snapshot.docs
+        .map((item) => normalizeTour(item.data() as Record<string, unknown>, item.id))
+        .filter(isVisibleTour),
+      viewerRole,
+    );
   },
   async create(data: Omit<TourOcurrencia, "id" | "creadoEn" | "actualizadoEn" | "estado">): Promise<void> {
     const guiaIds = data.guiaIds?.filter((value) => value.length > 0) ?? (data.guiaId ? [data.guiaId] : []);
@@ -136,8 +152,11 @@ export const toursService = {
         : data;
     await updateDoc(doc(db, "tours", tourId), { ...payload, actualizadoEn: serverTimestamp() });
   },
-  async listPage(options: PaginationParams & { guiaId?: string } = {}): Promise<PaginatedResult<TourOcurrencia>> {
+  async listPage(
+    options: PaginationParams & { guiaId?: string; viewerRole?: UserRole } = {},
+  ): Promise<PaginatedResult<TourOcurrencia>> {
     const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
+    const { viewerRole } = options;
     if (options.guiaId) {
       const [byPrimary, byList] = await Promise.all([
         getDocs(query(toursCollection, where("guiaId", "==", options.guiaId), limit(300))),
@@ -150,9 +169,12 @@ export const toursService = {
       for (const docSnap of byList.docs) {
         merged.set(docSnap.id, normalizeTour(docSnap.data() as Record<string, unknown>, docSnap.id));
       }
-      const sorted = Array.from(merged.values())
-        .filter(isVisibleTour)
-        .sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime());
+      const sorted = applyViewerPrivacy(
+        Array.from(merged.values()).filter(isVisibleTour).sort(
+          (a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime(),
+        ),
+        viewerRole,
+      );
       return {
         items: sorted.slice(0, pageSize),
         nextCursor: undefined,
@@ -164,9 +186,12 @@ export const toursService = {
     }
     constraints.push(limit(pageSize));
     const snapshot = await getDocs(query(toursCollection, ...constraints));
-    const items = snapshot.docs
-      .map((item) => normalizeTour(item.data() as Record<string, unknown>, item.id))
-      .filter(isVisibleTour);
+    const items = applyViewerPrivacy(
+      snapshot.docs
+        .map((item) => normalizeTour(item.data() as Record<string, unknown>, item.id))
+        .filter(isVisibleTour),
+      viewerRole,
+    );
     return {
       items,
       nextCursor: snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : undefined,

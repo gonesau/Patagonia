@@ -6,7 +6,7 @@ export function LoginPage() {
   const { firebaseUser, isLoading, errorMessage, isEmbeddedBrowser, signInWithGoogle } = useAuth();
 
   if (firebaseUser) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/" replace />;
   }
 
   const handleContinue = () => {

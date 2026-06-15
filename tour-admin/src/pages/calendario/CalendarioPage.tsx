@@ -44,7 +44,7 @@ interface CalendarEventRecord {
 export function CalendarioPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const canSendNotifications = profile?.rol === "admin" || profile?.rol === "operador";
+  const canSendNotifications = profile?.rol === "admin";
   const [events, setEvents] = useState<CalendarEventRecord[]>([]);
   const [guides, setGuides] = useState<Array<{ id: string; name: string }>>([]);
   const [guideFilter, setGuideFilter] = useState<string>("");
@@ -57,7 +57,7 @@ export function CalendarioPage() {
   useEffect(() => {
     const load = async () => {
       const [tours, allGuides] = await Promise.all([
-        toursService.list(profile?.rol === "guia" ? profile.guiaId : undefined),
+        toursService.list(profile?.rol === "guia" ? profile.guiaId : undefined, profile?.rol),
         guiasService.list(),
       ]);
       setGuides(allGuides.map((item) => ({ id: item.id, name: `${item.nombre} ${item.apellido}` })));

@@ -35,6 +35,7 @@ interface VagosInscritosPanelProps {
   tourId: string;
   inscripciones: Inscripcion[];
   isReadOnly: boolean;
+  canViewFinancial: boolean;
   isExportingPdf: boolean;
   onRegistrarPago: (inscripcion: Inscripcion) => void;
   onDesinscribir: (inscripcionId: string) => Promise<void>;
@@ -46,6 +47,7 @@ export function VagosInscritosPanel({
   tourId,
   inscripciones,
   isReadOnly,
+  canViewFinancial,
   isExportingPdf,
   onRegistrarPago,
   onDesinscribir,
@@ -216,9 +218,7 @@ export function VagosInscritosPanel({
           "Nombre",
           "Teléfono",
           "Email",
-          "Total",
-          "Pagado",
-          "Pendiente",
+          ...(canViewFinancial ? ["Total", "Pagado", "Pendiente"] : []),
           "Acciones",
         ]}
         renderMobileCard={(row: TableRow) => {
@@ -253,28 +253,34 @@ export function VagosInscritosPanel({
               fields={[
                 { label: "Teléfono", value: item.vagoTelefono || "—" },
                 { label: "Email", value: item.vagoEmail || "—" },
-                { label: "Total", value: `$${item.montoTotal.toFixed(2)}` },
-                { label: "Pagado", value: `$${item.montoPagado.toFixed(2)}` },
-                {
-                  label: "Pendiente",
-                  value: (
-                    <span className={hasSaldo ? "font-medium text-danger" : "text-neutral"}>
-                      ${saldo.toFixed(2)}
-                    </span>
-                  ),
-                },
+                ...(canViewFinancial
+                  ? [
+                      { label: "Total", value: `$${item.montoTotal.toFixed(2)}` },
+                      { label: "Pagado", value: `$${item.montoPagado.toFixed(2)}` },
+                      {
+                        label: "Pendiente",
+                        value: (
+                          <span className={hasSaldo ? "font-medium text-danger" : "text-neutral"}>
+                            ${saldo.toFixed(2)}
+                          </span>
+                        ),
+                      },
+                    ]
+                  : []),
               ]}
               actions={
                 <div className="flex w-full flex-col gap-2 sm:flex-row">
-                  <Button
-                    className="min-h-11 w-full sm:w-auto"
-                    disabled={isReadOnly || !hasSaldo}
-                    onClick={() => onRegistrarPago(item)}
-                    type="button"
-                    variant="secondary"
-                  >
-                    Registrar Pago
-                  </Button>
+                  {canViewFinancial ? (
+                    <Button
+                      className="min-h-11 w-full sm:w-auto"
+                      disabled={isReadOnly || !hasSaldo}
+                      onClick={() => onRegistrarPago(item)}
+                      type="button"
+                      variant="secondary"
+                    >
+                      Registrar Pago
+                    </Button>
+                  ) : null}
                   {!isReadOnly ? (
                     <Button
                       className="min-h-11 w-full sm:w-auto"
@@ -313,21 +319,27 @@ export function VagosInscritosPanel({
               </button>,
               item.vagoTelefono || "—",
               item.vagoEmail || "—",
-              `$${item.montoTotal.toFixed(2)}`,
-              `$${item.montoPagado.toFixed(2)}`,
-              <span className={hasSaldo ? "text-danger font-medium" : "text-neutral"}>
-                ${saldo.toFixed(2)}
-              </span>,
+              ...(canViewFinancial
+                ? [
+                    `$${item.montoTotal.toFixed(2)}`,
+                    `$${item.montoPagado.toFixed(2)}`,
+                    <span className={hasSaldo ? "text-danger font-medium" : "text-neutral"}>
+                      ${saldo.toFixed(2)}
+                    </span>,
+                  ]
+                : []),
               <div className="flex items-center gap-2">
-                <Button
-                  className="px-2 py-1 text-xs"
-                  disabled={isReadOnly || !hasSaldo}
-                  onClick={() => onRegistrarPago(item)}
-                  type="button"
-                  variant="secondary"
-                >
-                  Registrar Pago
-                </Button>
+                {canViewFinancial ? (
+                  <Button
+                    className="px-2 py-1 text-xs"
+                    disabled={isReadOnly || !hasSaldo}
+                    onClick={() => onRegistrarPago(item)}
+                    type="button"
+                    variant="secondary"
+                  >
+                    Registrar Pago
+                  </Button>
+                ) : null}
                 {!isReadOnly && (
                   <Button
                     className="px-2 py-1 text-xs text-neutral hover:text-danger"

@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import {
-  browserLocalPersistence,
+  browserSessionPersistence,
   getAuth,
   GoogleAuthProvider,
   inMemoryPersistence,
@@ -31,12 +31,12 @@ export const functions = functionsRegion
   : getFunctions(app);
 export const googleProvider = new GoogleAuthProvider();
 
-type AuthPersistenceStrategy = "local" | "memory" | "default";
+type AuthPersistenceStrategy = "session" | "memory" | "default";
 
 export async function setupAuthPersistence(authInstance: Auth): Promise<AuthPersistenceStrategy> {
   try {
-    await setPersistence(authInstance, browserLocalPersistence);
-    return "local";
+    await setPersistence(authInstance, browserSessionPersistence);
+    return "session";
   } catch {
     try {
       await setPersistence(authInstance, inMemoryPersistence);

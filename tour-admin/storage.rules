@@ -16,5 +16,9 @@ service firebase.storage {
     match /configuracion/{fileName} {
       allow read, write: if isAdmin();
     }
+
+    match /backups/{backupId}/{fileName=**} {
+      allow read, write: if isAdmin();
+    }
   }
 }

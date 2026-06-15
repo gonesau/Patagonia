@@ -16,9 +16,18 @@ import {
 } from "firebase/firestore";
 import type { Inscripcion } from "@/types/inscripcion.types";
 import type { Vago } from "@/types/vago.types";
+import type { UserRole } from "@/types/usuario.types";
+import { stripInscripcionFinancials } from "@/auth/financialPrivacy";
 import { db } from "./firebase";
 import { ServiceError } from "./serviceErrors";
 import { DEFAULT_PAGE_SIZE, type PaginatedResult, type PaginationParams } from "./pagination";
+
+function applyViewerPrivacy(inscripciones: Inscripcion[], viewerRole?: UserRole): Inscripcion[] {
+  if (!viewerRole || viewerRole === "admin") {
+    return inscripciones;
+  }
+  return inscripciones.map((item) => stripInscripcionFinancials(item, viewerRole));
+}
 
 export const inscripcionesService = {
   async countActivas(tourId: string): Promise<number> {
@@ -27,10 +36,11 @@ export const inscripcionesService = {
     return snapshot.data().count;
   },
 
-  async listByTour(tourId: string): Promise<Inscripcion[]> {
+  async listByTour(tourId: string, viewerRole?: UserRole): Promise<Inscripcion[]> {
     const ref = collection(db, "tours", tourId, "inscripciones");
     const snapshot = await getDocs(query(ref, orderBy("inscritoEn", "desc")));
-    return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Inscripcion);
+    const items = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Inscripcion);
+    return applyViewerPrivacy(items, viewerRole);
   },
   async createForTour(
     tourId: string,
@@ -73,7 +83,10 @@ export const inscripcionesService = {
   async cancelInscripcion(tourId: string, inscripcionId: string): Promise<void> {
     await updateDoc(doc(db, "tours", tourId, "inscripciones", inscripcionId), { estado: "cancelado" });
   },
-  async listPageByTour(tourId: string, options: PaginationParams = {}): Promise<PaginatedResult<Inscripcion>> {
+  async listPageByTour(
+    tourId: string,
+    options: PaginationParams & { viewerRole?: UserRole } = {},
+  ): Promise<PaginatedResult<Inscripcion>> {
     const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
     const ref = collection(db, "tours", tourId, "inscripciones");
     const constraints: QueryConstraint[] = [orderBy("inscritoEn", "desc"), queryLimit(pageSize)];
@@ -81,7 +94,10 @@ export const inscripcionesService = {
       constraints.splice(1, 0, startAfter(options.cursor));
     }
     const snapshot = await getDocs(query(ref, ...constraints));
-    const items = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Inscripcion);
+    const items = applyViewerPrivacy(
+      snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Inscripcion),
+      options.viewerRole,
+    );
     return {
       items,
       nextCursor: snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : undefined,

@@ -91,7 +91,7 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
   const [toursCursor, setToursCursor] = useState<QueryDocumentSnapshot<DocumentData> | undefined>(undefined);
 
   const loadCatalogs = useCallback(async () => {
-    if (profile?.rol === "guia") {
+    if (profile?.rol !== "admin") {
       const paymentMethodsData = await metodosPagoService.listActive();
       setPlantillas([]);
       setGuias([]);
@@ -116,6 +116,7 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
       guiaId: profile?.rol === "guia" ? profile.guiaId : undefined,
       pageSize: TOURS_PAGE_SIZE,
       cursor,
+      viewerRole: profile?.rol,
     });
     return result;
   }, [profile]);
@@ -148,13 +149,15 @@ export function useToursPageState(profile: UsuarioSistema | null): UseToursPageS
   };
 
   const loadDetailData = useCallback(async (tourId: string) => {
-    const [inscripcionesData, pagosData] = await Promise.all([
-      inscripcionesService.listByTour(tourId),
-      pagosService.listByTour(tourId),
-    ]);
+    const inscripcionesData = await inscripcionesService.listByTour(tourId, profile?.rol);
     setInscripciones(inscripcionesData);
-    setPagos(pagosData);
-  }, []);
+    if (profile?.rol === "admin") {
+      const pagosData = await pagosService.listByTour(tourId);
+      setPagos(pagosData);
+    } else {
+      setPagos([]);
+    }
+  }, [profile?.rol]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

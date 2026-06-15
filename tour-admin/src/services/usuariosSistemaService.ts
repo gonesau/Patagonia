@@ -44,4 +44,7 @@ export const usuariosSistemaService = {
   async updateGuia(userId: string, guiaId?: string): Promise<void> {
     await updateDoc(doc(db, "usuarios_sistema", userId), { guiaId: guiaId ?? null, actualizadoEn: serverTimestamp() });
   },
+  async registerLastAccess(userId: string): Promise<void> {
+    await updateDoc(doc(db, "usuarios_sistema", userId), { ultimoAcceso: serverTimestamp() });
+  },
 };

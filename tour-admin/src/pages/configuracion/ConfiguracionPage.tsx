@@ -8,6 +8,7 @@ import { registerAuditLog } from "@/services/auditoriaService";
 import { toServiceErrorMessage } from "@/services/serviceErrors";
 import { useAuth } from "@/hooks/useAuth";
 import type { ConfiguracionGlobal } from "@/types/config.types";
+import { BackupSection } from "./components/BackupSection";
 
 const emptyPlantillas = {
   confirmacionCuerpoHtml: "",
@@ -201,6 +202,7 @@ export function ConfiguracionPage() {
           ) : null}
         </form>
       )}
+      {isAdmin ? <BackupSection /> : null}
     </>
   );
 }

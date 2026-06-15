@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
+import { LayoutProvider, useLayoutModalPortal } from "./LayoutContext";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 
@@ -28,17 +29,47 @@ export function Layout() {
   }, []);
 
   return (
+    <LayoutProvider>
+      <LayoutShell
+        isMobileMenuOpen={isMobileMenuOpen}
+        isSidebarCollapsed={isSidebarCollapsed}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
+        onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+        onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
+      />
+    </LayoutProvider>
+  );
+}
+
+interface LayoutShellProps {
+  isSidebarCollapsed: boolean;
+  isMobileMenuOpen: boolean;
+  onCloseMobile: () => void;
+  onToggleSidebar: () => void;
+  onOpenMobileMenu: () => void;
+}
+
+function LayoutShell({
+  isSidebarCollapsed,
+  isMobileMenuOpen,
+  onCloseMobile,
+  onToggleSidebar,
+  onOpenMobileMenu,
+}: LayoutShellProps) {
+  const modalPortalRef = useLayoutModalPortal();
+
+  return (
     <div className="flex min-h-screen bg-surface font-body">
       <Sidebar
         isCollapsed={isSidebarCollapsed}
         isMobileOpen={isMobileMenuOpen}
-        onCloseMobile={() => setIsMobileMenuOpen(false)}
+        onCloseMobile={onCloseMobile}
       />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div ref={modalPortalRef} className="relative flex min-w-0 flex-1 flex-col">
         <TopBar
           isSidebarCollapsed={isSidebarCollapsed}
-          onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
-          onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+          onToggleSidebar={onToggleSidebar}
+          onOpenMobileMenu={onOpenMobileMenu}
         />
         <main className="min-w-0 flex-1 overflow-x-hidden p-3 sm:p-4 lg:p-6">
           <Suspense

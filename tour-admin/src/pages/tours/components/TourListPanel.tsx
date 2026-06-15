@@ -12,6 +12,7 @@ interface TourListPanelProps {
   hasMore: boolean;
   isLoadingMore: boolean;
   isAdmin: boolean;
+  canViewFinancial: boolean;
   onAddTour: () => void;
   onSelectTour: (tourId: string) => void;
   onEditTour: (tour: TourOcurrencia) => void;
@@ -24,6 +25,7 @@ interface TourListPanelProps {
 function renderTourRow(
   tour: TourOcurrencia,
   isAdmin: boolean,
+  canViewFinancial: boolean,
   onSelectTour: (tourId: string) => void,
   onEditTour: (tour: TourOcurrencia) => void,
   onDeleteTour: (tour: TourOcurrencia) => void,
@@ -53,7 +55,7 @@ function renderTourRow(
         );
       })(),
       `${tour.cupoMinimo}-${tour.cupoMaximo}`,
-      `$${tour.precioVenta.toFixed(2)}`,
+      ...(canViewFinancial ? [`$${tour.precioVenta.toFixed(2)}`] : []),
       isAdmin ? (
         <TableActions
           key={`actions-${tour.id}`}
@@ -79,6 +81,7 @@ export function TourListPanel({
   hasMore,
   isLoadingMore,
   isAdmin,
+  canViewFinancial,
   onAddTour,
   onSelectTour,
   onEditTour,
@@ -109,11 +112,18 @@ export function TourListPanel({
               </h4>
               <Table
                 emptyMessage="No hay tours en esta categoría."
-                headers={["Tour", "Estado", "Cupo", "Precio", "Acciones"]}
+                headers={[
+                  "Tour",
+                  "Estado",
+                  "Cupo",
+                  ...(canViewFinancial ? ["Precio"] : []),
+                  "Acciones",
+                ]}
                 rows={group.items.map((tour) =>
                   renderTourRow(
                     tour,
                     isAdmin,
+                    canViewFinancial,
                     onSelectTour,
                     onEditTour,
                     onDeleteTour,

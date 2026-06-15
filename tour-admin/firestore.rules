@@ -28,6 +28,10 @@ service cloud.firestore {
       return hasActiveRole('guia');
     }
 
+    function isOperador() {
+      return hasActiveRole('operador');
+    }
+
     function isActiveUser() {
       return isAuth() && exists(userDocPath()) && userDoc().data.activo == true;
     }
@@ -47,36 +51,32 @@ service cloud.firestore {
       return /databases/$(database)/documents/tours/$(tourId);
     }
 
-    function pagoTourSnapshot() {
-      return get(tourDocPath(resource.data.tourId));
-    }
-
     match /vagos/{vagoId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isAdmin() || isGuia();
     }
 
     match /tour_plantillas/{plantillaId} {
-      allow read: if isActiveUser();
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 
     match /tours/{tourId} {
-      allow read: if isAdmin() || isTourAssignedToGuia(resource.data);
+      allow read: if isAdmin() || isOperador() || isTourAssignedToGuia(resource.data);
       allow write: if isAdmin();
 
       match /inscripciones/{inscripcionId} {
-        allow read: if isAdmin() || isTourAssignedToGuia(get(tourDocPath(tourId)).data);
+        allow read: if isAdmin() || isOperador() || isTourAssignedToGuia(get(tourDocPath(tourId)).data);
         allow write: if isAdmin();
       }
 
       match /compras/{compraId} {
-        allow read: if isAdmin() || isTourAssignedToGuia(get(tourDocPath(tourId)).data);
+        allow read: if isAdmin();
         allow write: if isAdmin();
       }
     }
 
     match /guias/{guiaId} {
-      allow read: if isAdmin() || (isGuia() && userGuiaId() == guiaId);
+      allow read: if isActiveUser();
       allow write: if isAdmin();
       match /documentos/{docId} {
         allow read: if isAdmin() || (isGuia() && userGuiaId() == guiaId);
@@ -86,27 +86,27 @@ service cloud.firestore {
 
     match /transporte/{transporteId} {
       allow read: if isActiveUser();
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isGuia();
     }
 
     match /compras/{compraId} {
-      allow read: if isAdmin() || (
-        isGuia()
-        && resource.data.tourId != null
-        && exists(tourDocPath(resource.data.tourId))
-        && isTourAssignedToGuia(get(tourDocPath(resource.data.tourId)).data)
-      );
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 
     match /pagos/{pagoId} {
-      allow read: if isAdmin() || (isGuia() && pagoTourSnapshot().exists && isTourAssignedToGuia(pagoTourSnapshot().data));
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 
     match /usuarios_sistema/{userId} {
       allow read: if isAdmin() || (isAuth() && request.auth.uid == userId);
-      allow write: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        isAuth()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimoAcceso', 'actualizadoEn'])
+      );
     }
 
     match /categoriasCompra/{itemId} {
@@ -150,13 +150,18 @@ service cloud.firestore {
     }
 
     match /configuracion/{docId} {
-      allow read: if isActiveUser();
+      allow read: if isAdmin();
       allow write: if isAdmin();
+    }
+
+    match /backups/{backupId} {
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     match /auditoria/{logId} {
       allow read: if isAdmin();
-      allow create: if isAuth();
+      allow create: if isActiveUser() && request.resource.data.usuarioId == request.auth.uid;
       allow update, delete: if false;
     }
   }

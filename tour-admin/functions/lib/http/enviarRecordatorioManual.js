@@ -9,7 +9,7 @@ exports.enviarRecordatorioManual = (0, https_1.onCall)(async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError("unauthenticated", "Debes iniciar sesión para ejecutar esta acción.");
     }
-    const { tourId, mensajePersonalizado } = request.data;
+    const { tourId, mensajePersonalizado, inscripcionIds } = request.data;
     if (!tourId || !mensajePersonalizado) {
         throw new https_1.HttpsError("invalid-argument", "tourId y mensajePersonalizado son obligatorios.");
     }
@@ -18,12 +18,15 @@ exports.enviarRecordatorioManual = (0, https_1.onCall)(async (request) => {
     if (!tour) {
         throw new https_1.HttpsError("not-found", "No se encontró la ocurrencia.");
     }
-    const inscripciones = await firebaseAdmin_1.adminDb
+    let query = firebaseAdmin_1.adminDb
         .collection("tours")
         .doc(tourId)
         .collection("inscripciones")
-        .where("estado", "!=", "cancelado")
-        .get();
+        .where("estado", "!=", "cancelado");
+    if (inscripcionIds && inscripcionIds.length > 0) {
+        query = query.where("__name__", "in", inscripcionIds);
+    }
+    const inscripciones = await query.get();
     for (const doc of inscripciones.docs) {
         const data = doc.data();
         await (0, emailService_1.sendEmail)({

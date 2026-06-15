@@ -162,20 +162,6 @@ async function getActiveVagosCountSafe(): Promise<{ count: number | null; restri
   }
 }
 
-async function computeMonthlyIncomeFromTours(tourIds: string[], monthStart: Date, monthEnd: Date): Promise<number> {
-  if (tourIds.length === 0) {
-    return 0;
-  }
-  const pagosPorTour = await Promise.all(tourIds.map((tourId) => pagosService.listByTour(tourId)));
-  return pagosPorTour
-    .flat()
-    .filter((pago) => {
-      const fecha = new Date(pago.fecha);
-      return fecha >= monthStart && fecha <= monthEnd;
-    })
-    .reduce((total, pago) => total + pago.monto, 0);
-}
-
 async function collectDocumentAlerts(guiaIds: string[]): Promise<DashboardAlert[]> {
   const alerts: DashboardAlert[] = [];
   const now = new Date();
@@ -295,10 +281,13 @@ export async function getDashboardMetrics(
   const { start: periodStart, end: periodEnd, months: periodMonths } = periodToDateRange(period);
 
   const guiaFilter = auth?.rol === "guia" ? auth.guiaId : undefined;
-  const isAdmin = auth?.rol === "admin" || auth?.rol === "operador";
+  const isAdmin = auth?.rol === "admin";
 
   // ── Carga paralela base ───────────────────────────────────────────────────
-  const [vagosCountResult, tours] = await Promise.all([getActiveVagosCountSafe(), toursService.list(guiaFilter)]);
+  const [vagosCountResult, tours] = await Promise.all([
+    getActiveVagosCountSafe(),
+    toursService.list(guiaFilter, auth?.rol),
+  ]);
 
   // Filtrar tours al período seleccionado para las métricas de gráficos
   const toursInPeriod = tours.filter((t) => {
@@ -306,13 +295,13 @@ export async function getDashboardMetrics(
     return d >= periodStart && d <= periodEnd;
   });
 
-  const tourIds = tours.map((t) => t.id);
   const tourIdsInPeriod = toursInPeriod.map((t) => t.id);
 
   // ── Pagos ─────────────────────────────────────────────────────────────────
+  // La información financiera (pagos) está reservada para administradores.
   const pagosDelPeriodo = isAdmin
     ? await pagosService.listBetweenFechas(periodStart, periodEnd).catch(() => [])
-    : await Promise.all(tourIdsInPeriod.map((id) => pagosService.listByTour(id))).then((arrs) => arrs.flat());
+    : [];
 
   const ingresosMes = isAdmin
     ? pagosDelPeriodo
@@ -321,7 +310,7 @@ export async function getDashboardMetrics(
           return f >= monthStart && f <= monthEnd;
         })
         .reduce((s, p) => s + p.monto, 0)
-    : await computeMonthlyIncomeFromTours(tourIds, monthStart, monthEnd);
+    : 0;
 
   // ── Alertas documentos ────────────────────────────────────────────────────
   const alertsDocs = await (async (): Promise<DashboardAlert[]> => {
@@ -373,9 +362,10 @@ export async function getDashboardMetrics(
     }),
   );
 
-  // Estado de pagos: agregamos sobre las inscripciones de tours en período
+  // Estado de pagos: agregamos sobre las inscripciones de tours en período.
+  // Es información financiera, por lo que se reserva a administradores.
   const estadosPagoMap: Record<string, number> = { pendiente: 0, parcial: 0, completo: 0 };
-  if (tourIdsInPeriod.length > 0) {
+  if (isAdmin && tourIdsInPeriod.length > 0) {
     const inscripcionesLists = await Promise.all(tourIdsInPeriod.slice(0, 30).map((id) => inscripcionesService.listByTour(id)));
     for (const list of inscripcionesLists) {
       for (const ins of list) {
@@ -467,7 +457,7 @@ export async function getDashboardMetrics(
     vagosActivos: vagosCountResult.count,
     ingresosMes,
     toursAnioRealizados,
-    hasRestrictedMetrics: vagosCountResult.restricted,
+    hasRestrictedMetrics: vagosCountResult.restricted || !isAdmin,
     upcomingTours: upcomingRows,
     alerts,
     charts: {

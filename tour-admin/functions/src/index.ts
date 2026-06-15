@@ -5,3 +5,7 @@ export { crearCarpetaDrive } from "./http/crearCarpetaDrive";
 export { enviarLinkFotos } from "./http/enviarLinkFotos";
 export { enviarRecordatorioManual } from "./http/enviarRecordatorioManual";
 export { createSystemUser } from "./http/createSystemUser";
+export { createBackup } from "./http/createBackup";
+export { listBackups } from "./http/listBackups";
+export { getBackupStatus } from "./http/getBackupStatus";
+export { restoreBackup } from "./http/restoreBackup";

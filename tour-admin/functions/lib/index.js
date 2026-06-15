@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createSystemUser = exports.enviarRecordatorioManual = exports.enviarLinkFotos = exports.crearCarpetaDrive = exports.recordatoriosscheduler = exports.onUsuarioSistemaWrite = exports.onInscripcionCreada = void 0;
+exports.restoreBackup = exports.getBackupStatus = exports.listBackups = exports.createBackup = exports.createSystemUser = exports.enviarRecordatorioManual = exports.enviarLinkFotos = exports.crearCarpetaDrive = exports.recordatoriosscheduler = exports.onUsuarioSistemaWrite = exports.onInscripcionCreada = void 0;
 var onInscripcionCreada_1 = require("./triggers/onInscripcionCreada");
 Object.defineProperty(exports, "onInscripcionCreada", { enumerable: true, get: function () { return onInscripcionCreada_1.onInscripcionCreada; } });
 var onUsuarioSistemaWrite_1 = require("./triggers/onUsuarioSistemaWrite");
@@ -15,4 +15,12 @@ var enviarRecordatorioManual_1 = require("./http/enviarRecordatorioManual");
 Object.defineProperty(exports, "enviarRecordatorioManual", { enumerable: true, get: function () { return enviarRecordatorioManual_1.enviarRecordatorioManual; } });
 var createSystemUser_1 = require("./http/createSystemUser");
 Object.defineProperty(exports, "createSystemUser", { enumerable: true, get: function () { return createSystemUser_1.createSystemUser; } });
+var createBackup_1 = require("./http/createBackup");
+Object.defineProperty(exports, "createBackup", { enumerable: true, get: function () { return createBackup_1.createBackup; } });
+var listBackups_1 = require("./http/listBackups");
+Object.defineProperty(exports, "listBackups", { enumerable: true, get: function () { return listBackups_1.listBackups; } });
+var getBackupStatus_1 = require("./http/getBackupStatus");
+Object.defineProperty(exports, "getBackupStatus", { enumerable: true, get: function () { return getBackupStatus_1.getBackupStatus; } });
+var restoreBackup_1 = require("./http/restoreBackup");
+Object.defineProperty(exports, "restoreBackup", { enumerable: true, get: function () { return restoreBackup_1.restoreBackup; } });
 //# sourceMappingURL=index.js.map

@@ -20,7 +20,27 @@ import {
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db, googleProvider, setupAuthPersistence } from "@/services/firebase";
 import type { UserRole, UsuarioSistema } from "@/types/usuario.types";
+
+const ROLE_CLAIM_MISMATCH_MESSAGE =
+  "Tu sesión quedó desactualizada tras un cambio de permisos. Inicia sesión nuevamente.";
+
+function readTokenRole(claims: Record<string, unknown>): UserRole | null {
+  const value = claims.rol;
+  if (value === "admin" || value === "guia" || value === "operador") {
+    return value;
+  }
+  return null;
+}
+
+async function assertTokenRoleMatchesProfile(user: User, profileRole: UserRole): Promise<void> {
+  const tokenResult = await user.getIdTokenResult();
+  const tokenRole = readTokenRole(tokenResult.claims as Record<string, unknown>);
+  if (tokenRole !== null && tokenRole !== profileRole) {
+    throw new Error(ROLE_CLAIM_MISMATCH_MESSAGE);
+  }
+}
 import { timestampToDate } from "@/services/firestoreMappers";
+import { usuariosSistemaService } from "@/services/usuariosSistemaService";
 
 interface AuthContextValue {
   firebaseUser: User | null;
@@ -59,6 +79,35 @@ const EMBEDDED_BROWSER_REGEX = /(FBAN|FBAV|Instagram|Line|wv|WebView|Twitter|Lin
 const PROFILE_WAIT_MAX_ATTEMPTS = 6;
 const PROFILE_WAIT_DELAY_MS = 500;
 const PROFILE_NOT_AUTHORIZED_MESSAGE = "Tu usuario no está autorizado para acceder al sistema.";
+
+const SESSION_MAX_DURATION_MS = 6 * 60 * 60 * 1000;
+const SESSION_CHECK_INTERVAL_MS = 60 * 1000;
+const TOKEN_REFRESH_INTERVAL_MS = 30 * 60 * 1000;
+const SESSION_START_KEY = "patagonia.sessionStartedAt";
+const SESSION_EXPIRED_KEY = "patagonia.sessionExpiredNotice";
+const SESSION_EXPIRED_MESSAGE = "Tu sesión expiró por seguridad. Inicia sesión nuevamente.";
+
+function getSessionStart(): number | null {
+  const raw = sessionStorage.getItem(SESSION_START_KEY);
+  if (!raw) {
+    return null;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function setSessionStart(timestamp: number): void {
+  sessionStorage.setItem(SESSION_START_KEY, String(timestamp));
+}
+
+function clearSessionStart(): void {
+  sessionStorage.removeItem(SESSION_START_KEY);
+}
+
+function isSessionExpired(): boolean {
+  const start = getSessionStart();
+  return start !== null && Date.now() - start >= SESSION_MAX_DURATION_MS;
+}
 
 function detectEmbeddedBrowser(): boolean {
   if (typeof navigator === "undefined") {
@@ -128,6 +177,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.rol;
   }, []);
 
+  const forceLogoutWithMessage = useCallback(async (message: string): Promise<void> => {
+    sessionStorage.setItem(SESSION_EXPIRED_KEY, message);
+    clearSessionStart();
+    await signOut(auth);
+  }, []);
+
+  const forceLogoutExpired = useCallback(async (): Promise<void> => {
+    await forceLogoutWithMessage(SESSION_EXPIRED_MESSAGE);
+  }, [forceLogoutWithMessage]);
+
   const loadUserProfileWithRetry = useCallback(async (uid: string): Promise<UserRole> => {
     let lastError: unknown;
     for (let attempt = 0; attempt < PROFILE_WAIT_MAX_ATTEMPTS; attempt += 1) {
@@ -159,22 +218,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
         setIsLoading(true);
-        setErrorMessage(null);
-        setFirebaseUser(currentUser);
 
         if (!currentUser) {
+          setFirebaseUser(null);
           setProfile(null);
+          const expiredNotice = sessionStorage.getItem(SESSION_EXPIRED_KEY);
+          if (expiredNotice) {
+            sessionStorage.removeItem(SESSION_EXPIRED_KEY);
+            setErrorMessage(expiredNotice);
+          } else {
+            setErrorMessage(null);
+          }
           setIsLoading(false);
           return;
         }
 
+        if (isSessionExpired()) {
+          setProfile(null);
+          await forceLogoutExpired();
+          return;
+        }
+
+        setErrorMessage(null);
+        setFirebaseUser(currentUser);
+        if (getSessionStart() === null) {
+          setSessionStart(Date.now());
+        }
+
         try {
-          await loadUserProfileWithRetry(currentUser.uid);
+          const profileRole = await loadUserProfileWithRetry(currentUser.uid);
+          await currentUser.getIdToken(true);
+          await assertTokenRoleMatchesProfile(currentUser, profileRole);
+          void usuariosSistemaService.registerLastAccess(currentUser.uid).catch(() => undefined);
         } catch (error) {
           setProfile(null);
           setErrorMessage(
             error instanceof Error ? error.message : "No fue posible cargar tu perfil.",
           );
+          clearSessionStart();
           await signOut(auth);
         } finally {
           setIsLoading(false);
@@ -188,7 +269,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isMounted = false;
       unsubscribe();
     };
-  }, [loadUserProfileWithRetry]);
+  }, [loadUserProfileWithRetry, forceLogoutExpired]);
+
+  useEffect(() => {
+    if (!firebaseUser) {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      if (isSessionExpired()) {
+        void forceLogoutExpired();
+      }
+    }, SESSION_CHECK_INTERVAL_MS);
+    return () => window.clearInterval(interval);
+  }, [firebaseUser, forceLogoutExpired]);
+
+  useEffect(() => {
+    if (!firebaseUser) {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      void (async () => {
+        try {
+          await firebaseUser.getIdToken(true);
+          const currentRole = profile?.rol;
+          if (currentRole) {
+            await assertTokenRoleMatchesProfile(firebaseUser, currentRole);
+          }
+        } catch {
+          await forceLogoutWithMessage(ROLE_CLAIM_MISMATCH_MESSAGE);
+        }
+      })();
+    }, TOKEN_REFRESH_INTERVAL_MS);
+    return () => window.clearInterval(interval);
+  }, [firebaseUser, profile?.rol, forceLogoutWithMessage]);
 
   const signInWithGoogle = useCallback(async () => {
     setErrorMessage(null);
@@ -219,6 +332,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [isEmbeddedBrowser]);
 
   const logout = useCallback(async () => {
+    clearSessionStart();
+    sessionStorage.removeItem(SESSION_EXPIRED_KEY);
     await signOut(auth);
     setProfile(null);
   }, []);

@@ -10,7 +10,7 @@ exports.enviarLinkFotos = (0, https_1.onCall)(async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError("unauthenticated", "Debes iniciar sesión para ejecutar esta acción.");
     }
-    const { tourId, mensajePersonalizado } = request.data;
+    const { tourId, mensajePersonalizado, inscripcionIds } = request.data;
     if (!tourId) {
         throw new https_1.HttpsError("invalid-argument", "tourId es obligatorio.");
     }
@@ -19,12 +19,15 @@ exports.enviarLinkFotos = (0, https_1.onCall)(async (request) => {
     if (!tour || !tour.driveFolderUrl) {
         throw new https_1.HttpsError("failed-precondition", "La ocurrencia no tiene carpeta de Drive registrada.");
     }
-    const inscripciones = await firebaseAdmin_1.adminDb
+    let query = firebaseAdmin_1.adminDb
         .collection("tours")
         .doc(tourId)
         .collection("inscripciones")
-        .where("estado", "!=", "cancelado")
-        .get();
+        .where("estado", "!=", "cancelado");
+    if (inscripcionIds && inscripcionIds.length > 0) {
+        query = query.where("__name__", "in", inscripcionIds);
+    }
+    const inscripciones = await query.get();
     const plantillas = await (0, configEmailTemplates_1.getPlantillasEmailConfig)();
     const htmlExtra = plantillas.linkFotosCuerpoHtml ?? "";
     for (const doc of inscripciones.docs) {

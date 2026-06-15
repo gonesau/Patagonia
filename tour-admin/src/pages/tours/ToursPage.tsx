@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { MultiSelectChips, type MultiSelectOption } from "@/components/ui/MultiSelectChips";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toursService } from "@/services/toursService";
 import { softDeleteService } from "@/services/softDeleteService";
 import { transporteService } from "@/services/transporteService";
@@ -77,8 +78,9 @@ function addDays(base: Date, days: number): Date {
 
 export function ToursPage() {
   const { profile } = useAuth();
+  const { canViewFinancial } = usePermissions();
   const isAdmin = profile?.rol === "admin";
-  const canVerFinanzasEnReportes = profile?.rol === "admin" || profile?.rol === "operador";
+  const canVerFinanzasEnReportes = canViewFinancial;
   const [searchParams, setSearchParams] = useSearchParams();
   const {
     tours,
@@ -563,6 +565,7 @@ export function ToursPage() {
         groupedTours={groupedTours}
         hasMore={hasMoreTours}
         isAdmin={isAdmin}
+        canViewFinancial={canViewFinancial}
         isLoadingMore={isLoadingMoreTours}
         onAddTour={openCreateTourModal}
         onDuplicateTour={openDuplicateFromTour}
@@ -610,6 +613,7 @@ export function ToursPage() {
             tourId={selectedTourId}
             inscripciones={inscripciones}
             isReadOnly={!isAdmin}
+            canViewFinancial={canViewFinancial}
             isExportingPdf={isExportingPdf}
             onRegistrarPago={(inscripcion) => setPagoInscripcionTarget(inscripcion)}
             onDesinscribir={async (inscripcionId) => { await cancelInscripcion(inscripcionId); }}
@@ -622,10 +626,12 @@ export function ToursPage() {
 
           {/* Historial y Operaciones */}
           <div className="grid gap-4 xl:grid-cols-2">
-            <HistorialPagosPanel
-              pagos={pagos}
-              inscripciones={inscripciones}
-            />
+            {canViewFinancial ? (
+              <HistorialPagosPanel
+                pagos={pagos}
+                inscripciones={inscripciones}
+              />
+            ) : null}
             {isAdmin ? (
               <TourOperacionesPanel
                 driveFolderUrl={selectedTour?.driveFolderUrl}
@@ -827,10 +833,12 @@ export function ToursPage() {
               <p className="font-semibold text-neutral">Estado</p>
               <p>{getEstadoTour(tourDetail.estado).nombre}</p>
             </div>
-            <div>
-              <p className="font-semibold text-neutral">Precio de venta</p>
-              <p>${tourDetail.precioVenta.toFixed(2)}</p>
-            </div>
+            {canViewFinancial ? (
+              <div>
+                <p className="font-semibold text-neutral">Precio de venta</p>
+                <p>${tourDetail.precioVenta.toFixed(2)}</p>
+              </div>
+            ) : null}
             <div>
               <p className="font-semibold text-neutral">Fecha de inicio</p>
               <p>{new Date(tourDetail.fechaInicio).toLocaleString("es-SV")}</p>
@@ -863,14 +871,18 @@ export function ToursPage() {
               <p className="font-semibold text-neutral">Transporte Asignado</p>
               <p>{tourDetail.transporteId ? (unidadesTransporte.find(u => u.id === tourDetail.transporteId)?.placa || tourDetail.transporteId) : "—"}</p>
             </div>
-            <div>
-              <p className="font-semibold text-neutral">Costo Transporte</p>
-              <p>${tourDetail.costoTransporte?.toFixed(2) || "0.00"}</p>
-            </div>
-            <div>
-              <p className="font-semibold text-neutral">Costos Extras</p>
-              <p>${tourDetail.costosExtras?.toFixed(2) || "0.00"}</p>
-            </div>
+            {canViewFinancial ? (
+              <>
+                <div>
+                  <p className="font-semibold text-neutral">Costo Transporte</p>
+                  <p>${tourDetail.costoTransporte?.toFixed(2) || "0.00"}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-neutral">Costos Extras</p>
+                  <p>${tourDetail.costosExtras?.toFixed(2) || "0.00"}</p>
+                </div>
+              </>
+            ) : null}
             <div className="sm:col-span-2">
               <p className="font-semibold text-neutral">Recordatorios Automáticos</p>
               <p>{tourDetail.recordatoriosAutomaticosHabilitados !== false ? "Habilitados" : "Deshabilitados"}</p>

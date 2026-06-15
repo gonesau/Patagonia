@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { LoginPage } from "@/pages/auth/LoginPage";
 import { AccessDeniedPage } from "@/pages/auth/AccessDeniedPage";
 import type { UserRole } from "@/types/usuario.types";
+import { getDefaultRoute } from "@/auth/permissions";
 import { RouteErrorFallback } from "@/components/errors/RouteErrorFallback";
 
 const DashboardPage = lazy(() =>
@@ -55,11 +56,16 @@ function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
   if (errorMessage) {
     return <Navigate to="/acceso-denegado" replace />;
   }
-  if (roles && role && !roles.includes(role)) {
+  if (roles && (!role || !roles.includes(role))) {
     return <Navigate to="/acceso-denegado" replace />;
   }
 
   return <Outlet />;
+}
+
+function HomeRedirect() {
+  const { role } = useAuth();
+  return <Navigate to={getDefaultRoute(role)} replace />;
 }
 
 const router = createBrowserRouter([
@@ -73,16 +79,21 @@ const router = createBrowserRouter([
         element: <Layout />,
         errorElement: <RouteErrorFallback />,
         children: [
-          { path: "/", element: <Navigate to="/dashboard" replace /> },
-          { path: "/dashboard", element: <DashboardPage /> },
+          { path: "/", element: <HomeRedirect /> },
           { path: "/tours", element: <ToursPage /> },
           { path: "/calendario", element: <CalendarioPage /> },
           {
-            element: <ProtectedRoute roles={["admin", "operador"]} />,
+            element: <ProtectedRoute roles={["admin", "guia"]} />,
             children: [
+              { path: "/dashboard", element: <DashboardPage /> },
               { path: "/vagos", element: <VagosPage /> },
-              { path: "/guias", element: <GuiasPage /> },
               { path: "/transporte", element: <TransportePage /> },
+            ],
+          },
+          {
+            element: <ProtectedRoute roles={["admin"]} />,
+            children: [
+              { path: "/guias", element: <GuiasPage /> },
               { path: "/plantillas", element: <PlantillasPage /> },
               { path: "/compras", element: <ComprasPage /> },
               { path: "/reportes", element: <ReportesPage /> },
